@@ -4,7 +4,7 @@
 
 An AI Gomoku game with multiple difficulty levels, using complete Minimax algorithm with Alpha-Beta pruning optimization, supporting up to 14-layer depth search.
 
-在线试玩 / Online Demo: https://kevin2014123.github.io/5zq-kevin2014.github.io/
+在线试玩 / Online Demo: https://kevin2014123.github.io/gomoku-ai/
 
 ## 功能特性 / Features
 
