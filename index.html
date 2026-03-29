@@ -2775,18 +2775,23 @@
             initGame();
         });
 <script>
-    (function() {
-        const openBtn = document.getElementById('licenseModalBtn');
-        if (openBtn) {
-            // 移除原有所有事件监听器，重新绑定
-            const newBtn = openBtn.cloneNode(true);
-            openBtn.parentNode.replaceChild(newBtn, openBtn);
-            newBtn.addEventListener('click', function(e) {
+(function() {
+    function bindLicenseButton() {
+        var btn = document.getElementById('licenseModalBtn');
+        if (btn && !btn.hasAttribute('data-bound')) {
+            btn.setAttribute('data-bound', 'true');
+            btn.addEventListener('click', function(e) {
                 e.preventDefault();
                 window.open('https://www.gnu.org/licenses/gpl-3.0.html', '_blank');
             });
         }
-    })();
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bindLicenseButton);
+    } else {
+        bindLicenseButton();
+    }
+})();
 </script>
 </body>
 </html>
