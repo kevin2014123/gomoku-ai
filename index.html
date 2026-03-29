@@ -2774,13 +2774,23 @@
             // 初始化游戏
             initGame();
         });
-    </script>
-    
-    <!-- 新增：许可证按钮与全屏显示逻辑，完整GPL v3文本 -->
-    <script>
-        (function() {
-            // 完整的GNU GPL v3 许可证文本 (一字不差)
-            const fullGPLText = `                    GNU GENERAL PUBLIC LICENSE
+<script>
+    (function() {
+        // 确保DOM完全加载后再绑定事件
+        function initLicenseModal() {
+            const modal = document.getElementById('licenseFullModal');
+            const openBtn = document.getElementById('licenseModalBtn');
+            const closeBtn = document.getElementById('closeLicenseBtn');
+            const textPre = document.getElementById('licenseFullText');
+            
+            if (!modal || !openBtn || !closeBtn) {
+                console.warn('License modal elements missing');
+                return;
+            }
+            
+            // 设置许可证文本（如果尚未设置）
+            if (textPre && !textPre.textContent) {
+                const fullGPLText = `                    GNU GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007
 
  Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
@@ -3454,31 +3464,35 @@ may consider it more useful to permit linking proprietary applications with
 the library.  If this is what you want to do, use the GNU Lesser General
 Public License instead of this License.  But first, please read
 <https://www.gnu.org/licenses/why-not-lgpl.html>.`;
-
-            const modal = document.getElementById('licenseFullModal');
-            const openBtn = document.getElementById('licenseModalBtn');
-            const closeBtn = document.getElementById('closeLicenseBtn');
-            const textPre = document.getElementById('licenseFullText');
-            
-            if (textPre) textPre.textContent = fullGPLText;
-            
-            if (openBtn && modal) {
-                openBtn.addEventListener('click', () => {
-                    modal.classList.add('show');
-                });
+                textPre.textContent = fullGPLText;
             }
-            if (closeBtn && modal) {
-                closeBtn.addEventListener('click', () => {
+            
+            // 打开模态框
+            openBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                modal.classList.add('show');
+            });
+            
+            // 关闭模态框（关闭按钮）
+            closeBtn.addEventListener('click', function() {
+                modal.classList.remove('show');
+            });
+            
+            // 点击模态框背景关闭
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
                     modal.classList.remove('show');
-                });
-            }
-            // 点击背景也可关闭 (可选，不影响要求)
-            if (modal) {
-                modal.addEventListener('click', (e) => {
-                    if (e.target === modal) modal.classList.remove('show');
-                });
-            }
-        })();
-    </script>
+                }
+            });
+        }
+        
+        // 如果DOM已加载，直接执行；否则等待加载完成
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initLicenseModal);
+        } else {
+            initLicenseModal();
+        }
+    })();
+</script>
 </body>
 </html>
