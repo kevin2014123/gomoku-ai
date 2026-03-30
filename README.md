@@ -1,3 +1,8 @@
+# 🌟 如果这个项目对你有帮助，请点个 ⭐ Star 支持一下！  
+# 🌟 If this project helps you, please give it a ⭐ Star!  
+
+## 你的每一个 Star，都是对我最大的鼓励 💪  
+## Every Star means a lot to me 💪
 # 万层地狱五子棋AI / Myriad Hell Gomoku AI
 
 一个具有多级难度的人工智能五子棋游戏，采用完整的Minimax算法配合Alpha-Beta剪枝优化，支持最高14层深度搜索。
