@@ -1266,63 +1266,45 @@
             50% { transform: translateX(-50%) scale(1.05); }
             100% { transform: translateX(-50%) scale(1); }
         }
-        
-        /* ========= 新增悔棋次数显示样式 ========= */
+
+        /* 新增悔棋次数样式 - 位于棋盘上方右侧 */
         .undo-counter {
             position: absolute;
-            top: -38px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: linear-gradient(135deg, #2a1e0f, #1a1208);
+            top: -15px;
+            right: 10px;
+            background: linear-gradient(135deg, #2a2a3c, #1e1e2f);
             border: 1px solid #ff9900;
-            border-radius: 40px;
-            padding: 5px 18px;
+            border-radius: 20px;
+            padding: 4px 14px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            color: #ffcc00;
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 6px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
             backdrop-filter: blur(4px);
-            box-shadow: 0 0 12px rgba(255, 153, 0, 0.4);
-            z-index: 20;
+            z-index: 12;
             white-space: nowrap;
-            font-weight: bold;
-            font-size: 0.9rem;
-            animation: undoCounterGlow 2s infinite alternate;
+            animation: counterGlow 2s infinite alternate;
         }
-        
-        @keyframes undoCounterGlow {
-            0% { box-shadow: 0 0 4px rgba(255, 153, 0, 0.4); border-color: #ff9900; }
-            100% { box-shadow: 0 0 16px rgba(255, 69, 0, 0.8); border-color: #ff4500; }
+
+        @keyframes counterGlow {
+            0% { box-shadow: 0 0 5px rgba(255,153,0,0.3); border-color: #ff9900; }
+            100% { box-shadow: 0 0 12px rgba(255,153,0,0.8); border-color: #ffcc00; }
         }
-        
+
         .undo-counter i {
-            color: #ffcc00;
-            font-size: 1rem;
-            filter: drop-shadow(0 0 3px #ff6600);
+            font-size: 0.9rem;
+            color: #ffaa33;
         }
-        
-        .undo-counter .counter-value {
-            color: #ffcc00;
-            font-size: 1.3rem;
+
+        .undo-counter span {
+            color: #ffaa33;
             font-weight: bold;
-            margin-left: 4px;
-            margin-right: 2px;
-            text-shadow: 0 0 5px #ff4500;
+            font-size: 1rem;
+            margin-left: 2px;
         }
-        
-        .undo-counter .counter-label {
-            color: #ffe6b3;
-            letter-spacing: 1px;
-        }
-        
-        .undo-warning-tip {
-            font-size: 0.7rem;
-            background: rgba(0,0,0,0.6);
-            border-radius: 20px;
-            padding: 2px 8px;
-            margin-left: 6px;
-            color: #ffaa66;
-        }
-        /* ========= 悔棋次数样式结束 ========= */
     </style>
 </head>
 <body>
@@ -1349,14 +1331,11 @@
         
         <div class="game-wrapper">
             <div class="board-container">
-                <!-- 新增悔棋次数显示区域 - 棋盘正上方位置 -->
-                <div class="undo-counter" id="undoCounter">
-                    <i class="fas fa-undo-alt"></i>
-                    <span class="counter-label">剩余悔棋</span>
-                    <span class="counter-value" id="undoRemainingValue">3</span>
-                    <span class="undo-warning-tip"><i class="fas fa-exclamation-triangle"></i> 限次</span>
-                </div>
                 <div class="player-turn-indicator" id="turnIndicator">黑方回合</div>
+                <!-- 新增悔棋次数显示 -->
+                <div class="undo-counter" id="undoCounterDisplay">
+                    <i class="fas fa-undo-alt"></i> 悔棋次数: <span id="undoCountValue">0</span>
+                </div>
                 <div class="board" id="board"></div>
             </div>
             
@@ -1576,6 +1555,9 @@
             const rankProgressText = document.getElementById('rankProgressText');
             const rankList = document.getElementById('rankList');
             
+            // 新增悔棋次数显示相关元素
+            const undoCountSpan = document.getElementById('undoCountValue');
+            
             let soundEnabled = true;
             
             // 段位系统配置
@@ -1609,74 +1591,6 @@
                 eloRating: 0
             };
             
-            // ========= 新增：悔棋次数限制 =========
-            let undoRemaining = 3;          // 初始剩余悔棋次数
-            const undoRemainingSpan = document.getElementById('undoRemainingValue');
-            
-            // 更新悔棋次数显示
-            function updateUndoDisplay() {
-                if (undoRemainingSpan) {
-                    undoRemainingSpan.textContent = undoRemaining;
-                    // 剩余次数为0时添加特殊样式警告
-                    if (undoRemaining === 0) {
-                        undoRemainingSpan.style.color = "#ff6666";
-                        undoRemainingSpan.style.textShadow = "0 0 5px red";
-                    } else {
-                        undoRemainingSpan.style.color = "#ffcc00";
-                        undoRemainingSpan.style.textShadow = "0 0 5px #ff4500";
-                    }
-                }
-            }
-            
-            // 重置悔棋次数（新游戏时调用）
-            function resetUndoRemaining() {
-                undoRemaining = 3;
-                updateUndoDisplay();
-            }
-            
-            // 尝试执行悔棋（带次数限制）
-            function tryUndoMove() {
-                if (gameState.gameOver) {
-                    if (soundEnabled && clickSound) clickSound.play().catch(e=>{});
-                    if (status) status.innerHTML = '<i class="fas fa-ban"></i> 游戏已结束，无法悔棋';
-                    return false;
-                }
-                if (undoRemaining <= 0) {
-                    if (soundEnabled && clickSound) clickSound.play().catch(e=>{});
-                    if (status) status.innerHTML = '<i class="fas fa-skull"></i> 悔棋次数已耗尽！';
-                    // 3秒后恢复状态文字
-                    setTimeout(() => updateStatus(), 1500);
-                    return false;
-                }
-                if (gameState.moves.length === 0) {
-                    if (soundEnabled && clickSound) clickSound.play().catch(e=>{});
-                    if (status) status.innerHTML = '<i class="fas fa-times"></i> 无棋可悔';
-                    setTimeout(() => updateStatus(), 1000);
-                    return false;
-                }
-                
-                // 记录悔棋前步数
-                const prevMovesLen = gameState.moves.length;
-                // 调用原始悔棋逻辑（原本的undoMove函数）
-                originalUndoMove();
-                // 检查是否成功悔棋（步数减少）
-                if (gameState.moves.length < prevMovesLen) {
-                    undoRemaining--;
-                    updateUndoDisplay();
-                    if (soundEnabled && clickSound) clickSound.play().catch(e=>{});
-                    if (status) status.innerHTML = '<i class="fas fa-undo-alt"></i> 悔棋成功！剩余次数：'+undoRemaining;
-                    setTimeout(() => updateStatus(), 1200);
-                    return true;
-                } else {
-                    if (status) status.innerHTML = '<i class="fas fa-exclamation-triangle"></i> 悔棋失败';
-                    setTimeout(() => updateStatus(), 1000);
-                    return false;
-                }
-            }
-            
-            // 保存原始undoMove引用
-            let originalUndoMove = null;
-            
             // 版本历史数据
             const versionHistory = [
                 { version: "1.0", description: "非常简陋，轻轻松松就能赢" },
@@ -1698,6 +1612,27 @@
                 { version: "13.1", description: "优化双人对战模式体验" }
             ];
             
+            // ---------- 新增悔棋次数变量 ----------
+            let undoCount = 0;   // 记录当前对局悔棋次数
+            
+            // 更新悔棋次数显示
+            function updateUndoDisplay() {
+                if (undoCountSpan) undoCountSpan.innerText = undoCount;
+            }
+            
+            // 重置悔棋次数 (游戏重新开始时调用)
+            function resetUndoCount() {
+                undoCount = 0;
+                updateUndoDisplay();
+            }
+            
+            // 增加悔棋次数 (仅在成功悔棋时调用)
+            function incrementUndoCount() {
+                undoCount++;
+                updateUndoDisplay();
+            }
+            // ------------------------------------
+            
             // 初始化游戏
             function initGame() {
                 // 尝试从localStorage加载积分
@@ -1718,7 +1653,7 @@
                 aiDifficultyPanel.style.display = 'block';
                 
                 // 重置悔棋次数
-                resetUndoRemaining();
+                resetUndoCount();
             }
             
             // 初始化段位系统
@@ -2641,12 +2576,14 @@
                 updateStatus();
                 
                 // 重置悔棋次数
-                resetUndoRemaining();
+                resetUndoCount();
             }
             
-            // 原始悔棋逻辑（不包含次数限制）
-            function originalUndoMove() {
+            // 悔棋 (原函数)
+            function undoMove() {
                 if (gameState.moves.length === 0 || gameState.gameOver) return;
+                
+                playSound(clickSound);
                 
                 const lastMove = gameState.moves.pop();
                 gameState.board = lastMove.prevBoard;
@@ -2662,6 +2599,9 @@
                 
                 drawStones();
                 updateStatus();
+                
+                // 成功悔棋，增加悔棋次数
+                incrementUndoCount();
             }
             
             // 设置游戏模式
@@ -2746,49 +2686,22 @@
                 return null;
             }
             
-            // 事件监听 (保留原有全部监听，额外增加悔棋次数限制的绑定)
-            // 先保存原始undoMove引用，再重新绑定悔棋按钮
-            originalUndoMove = originalUndoMove;
-            // 移除原有undoBtn监听器（避免重复触发），然后添加带次数限制的新监听
-            const newUndoBtn = undoBtn.cloneNode(true);
-            undoBtn.parentNode.replaceChild(newUndoBtn, undoBtn);
-            const finalUndoBtn = document.getElementById('undoBtn');
-            finalUndoBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                tryUndoMove();
-            });
-            
-            // 重新绑定其他按钮（原有restartBtn等保持不变，但需确保重启时重置悔棋次数）
-            // 注意原有restartBtn的监听器依然存在，我们在后面额外添加重置操作，因为restartGame已经包含resetUndoRemaining，无需额外
-            
-            // 由于restartGame已经被覆盖为包含resetUndoRemaining的新函数，并且原有restartGame逻辑仍然通过restartGame执行，所以没问题。
-            // 但是需要确保playAgainBtn同样触发restartGame，而restartGame里已经重置悔棋次数，完美。
-            // 此外，模式切换按钮调用setGameMode->restartGame，也会重置悔棋次数。
-            
-            // 重新绑定restartBtn事件（避免重复, 但原监听器依然存在会调用两次restartGame，我们需要移除原有的）
-            const oldRestart = restartBtn;
-            const newRestart = oldRestart.cloneNode(true);
-            oldRestart.parentNode.replaceChild(newRestart, oldRestart);
-            const finalRestartBtn = document.getElementById('restartBtn');
-            finalRestartBtn.addEventListener('click', () => {
-                playSound(clickSound);
-                restartGame();
-            });
-            
-            const oldPlayAgain = playAgainBtn;
-            const newPlayAgain = oldPlayAgain.cloneNode(true);
-            oldPlayAgain.parentNode.replaceChild(newPlayAgain, oldPlayAgain);
-            const finalPlayAgainBtn = document.getElementById('playAgainBtn');
-            finalPlayAgainBtn.addEventListener('click', () => {
+            // 事件监听
+            restartBtn.addEventListener('click', restartGame);
+            playAgainBtn.addEventListener('click', () => {
                 playSound(clickSound);
                 winMessage.classList.remove('show');
                 restartGame();
             });
-            
-            // 模式切换按钮事件重新绑定（避免原有冲突，但原有监听器仍会调用setGameMode并重启，会导致重置两次，但无大碍）
-            // 为了防止双重resetUndoRemaining，我们仍然保留原监听，但原有setGameMode内调用restartGame包含重置，不会出错。
-            // 因为restartGame内重置悔棋次数，二次重置不影响结果。
-            // 但为了更干净，我们不移除原监听，但为了避免双次重启，额外加了重置效果也没关系。
+            undoBtn.addEventListener('click', undoMove);
+            aiModeBtn.addEventListener('click', () => setGameMode('ai'));
+            pvpModeBtn.addEventListener('click', () => setGameMode('pvp'));
+            difficultyBtns.forEach(btn => {
+                btn.addEventListener('click', () => setAIDifficulty(btn.dataset.difficulty));
+            });
+            modelBtns.forEach(btn => {
+                btn.addEventListener('click', () => setAIModel(btn.dataset.model));
+            });
             
             // 音效开关
             soundToggle.addEventListener('click', () => {
@@ -2798,24 +2711,6 @@
                     '<i class="fas fa-volume-mute"></i>';
                 playSound(clickSound);
             });
-            
-            // 重新挂载难度和模型选择原有事件（由于clone节点，原有事件丢失，需重新绑定）
-            const newDifficultyBtns = document.querySelectorAll('.difficulty-btn');
-            newDifficultyBtns.forEach(btn => {
-                btn.removeEventListener('click', null);
-                btn.addEventListener('click', () => setAIDifficulty(btn.dataset.difficulty));
-            });
-            const newModelBtns = document.querySelectorAll('.model-btn');
-            newModelBtns.forEach(btn => {
-                btn.removeEventListener('click', null);
-                btn.addEventListener('click', () => setAIModel(btn.dataset.model));
-            });
-            const newAiModeBtn = document.getElementById('aiMode');
-            const newPvpModeBtn = document.getElementById('pvpMode');
-            newAiModeBtn.removeEventListener('click', null);
-            newPvpModeBtn.removeEventListener('click', null);
-            newAiModeBtn.addEventListener('click', () => setGameMode('ai'));
-            newPvpModeBtn.addEventListener('click', () => setGameMode('pvp'));
             
             // 初始化游戏
             initGame();
