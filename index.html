@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>五子棋挑战 - 强化版地狱模式</title>
-    <link rel="stylesheet" href="https:
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
             margin: 0;
@@ -1308,7 +1308,7 @@
     </style>
 </head>
 <body>
-    <button class="support-btn" onclick="window.open('https:
+    <button class="support-btn" onclick="window.open('https://raw.githubusercontent.com/kevin2014123/gomoku-ai/main/Reward%20code.png','_blank')">
         <i class="fas fa-wine-bottle"></i> 打赏作者
     </button>
 
@@ -1326,12 +1326,12 @@
     <div style="margin-top: 10px; font-size: 0.9rem; color: #ffcc00;">
         <div>
             GitHub仓库: 
-            <a href="https:
+            <a href="https://github.com/kevin2014123/gomoku-ai" target="_blank" style="color: #ffcc00; text-decoration: underline;">
                 kevin2014123/gomoku-ai
             </a>
             ⭐ 如果觉得AI厉害，点个去GitHub仓库Star支持一下，只要5秒！谢谢💗
         </div>
-        <div>许可证: <a href="https:
+        <div>许可证: <a href="https://www.gnu.org/licenses/gpl-3.0.txt" target="_blank" style="color: #ffcc00; text-decoration: underline;">GNU General Public License v3.0</a></div>
     </div>
 </header>
         
@@ -1518,9 +1518,9 @@
         </div>
     </div>
     
-    <audio id="placeSound" src="https:
-    <audio id="winSound" src="https:
-    <audio id="clickSound" src="https:
+    <audio id="placeSound" src="https://assets.mixkit.co/sfx/preview/mixkit-arcade-game-jump-coin-216.mp3"></audio>
+    <audio id="winSound" src="https://assets.mixkit.co/sfx/preview/mixkit-winning-chimes-2015.mp3"></audio>
+    <audio id="clickSound" src="https://assets.mixkit.co/sfx/preview/mixkit-select-click-1109.mp3"></audio>
     
     <script>
         document.addEventListener('DOMContentLoaded', () => {
@@ -1553,6 +1553,7 @@
             const versionList = document.getElementById('versionList');
             const turnIndicator = document.getElementById('turnIndicator');
             
+            // 段位系统相关元素
             const currentRankIcon = document.getElementById('currentRankIcon');
             const currentRankName = document.getElementById('currentRankName');
             const currentRankPoints = document.getElementById('currentRankPoints');
@@ -1560,10 +1561,12 @@
             const rankProgressText = document.getElementById('rankProgressText');
             const rankList = document.getElementById('rankList');
             
+            // 新增悔棋次数显示相关元素
             const undoCountSpan = document.getElementById('undoCountValue');
             
             let soundEnabled = true;
             
+            // 段位系统配置
             const rankSystem = [
                 { name: "初学者", icon: "1", min: 0, max: 100, color: "#6c757d" },
                 { name: "入门棋手", icon: "2", min: 101, max: 300, color: "#28a745" },
@@ -1575,23 +1578,26 @@
                 { name: "棋神", icon: "★", min: 3001, max: Infinity, color: "#ffc107" }
             ];
             
+            // 游戏状态
             let gameState = {
                 board: Array(15).fill().map(() => Array(15).fill(0)),
-                currentPlayer: 1, 
+                currentPlayer: 1, // 1: 黑棋, 2: 红棋(AI)
                 gameOver: false,
                 moves: [],
-                mode: 'ai', 
-                difficulty: 'ultimatehell', 
-                model: 'normal', 
+                mode: 'ai', // 'ai' 或 'pvp'
+                difficulty: 'ultimatehell', // 'easy', 'medium', 'hard', 'ultimatehell'
+                model: 'normal', // 'normal' 或 'fullpower'
                 stats: {
                     playerWins: 0,
                     aiWins: 0,
                     moves: 0,
                     maxDepth: 0
                 },
+                // 新增段位积分
                 eloRating: 0
             };
             
+            // 版本历史数据
             const versionHistory = [
                 { version: "1.0", description: "非常简陋，轻轻松松就能赢" },
                 { version: "2.0", description: "难度明显提升，特别是困难模式" },
@@ -1613,23 +1619,30 @@
                 { version: "14.0 Ultra", description: "全面升级，修复了无数个bug，提升了所有难度的 AI，所以我将它命名为 Ultra" }
             ];
             
-            let undoCount = 0;   
+            // ---------- 新增悔棋次数变量 ----------
+            let undoCount = 0;   // 记录当前对局悔棋次数
             
+            // 更新悔棋次数显示
             function updateUndoDisplay() {
                 if (undoCountSpan) undoCountSpan.innerText = undoCount;
             }
             
+            // 重置悔棋次数 (游戏重新开始时调用)
             function resetUndoCount() {
                 undoCount = 0;
                 updateUndoDisplay();
             }
             
+            // 增加悔棋次数 (仅在成功悔棋时调用)
             function incrementUndoCount() {
                 undoCount++;
                 updateUndoDisplay();
             }
+            // ------------------------------------
             
+            // 初始化游戏
             function initGame() {
+                // 尝试从localStorage加载积分
                 const savedElo = localStorage.getItem('gomokuEloRating');
                 if (savedElo) {
                     gameState.eloRating = parseInt(savedElo);
@@ -1643,17 +1656,22 @@
                 ultimatehellWarning.style.display = 'block';
                 modelSelection.style.display = 'block';
                 
+                // 初始显示AI面板
                 aiDifficultyPanel.style.display = 'block';
                 
+                // 重置悔棋次数
                 resetUndoCount();
             }
             
+            // 初始化段位系统
             function initRankSystem() {
+                // 生成段位列表
                 rankList.innerHTML = '';
                 rankSystem.forEach(rank => {
                     const rankItem = document.createElement('div');
                     rankItem.className = 'rank-item';
                     
+                    // 检查是否是当前段位
                     if (gameState.eloRating >= rank.min && gameState.eloRating <= rank.max) {
                         rankItem.classList.add('current');
                     }
@@ -1667,16 +1685,20 @@
                 });
             }
             
+            // 更新段位显示
             function updateRankDisplay() {
+                // 查找当前段位
                 const currentRank = rankSystem.find(rank => 
                     gameState.eloRating >= rank.min && gameState.eloRating <= rank.max
                 ) || rankSystem[0];
                 
+                // 更新显示
                 currentRankIcon.textContent = currentRank.icon;
                 currentRankName.textContent = currentRank.name;
                 currentRankIcon.style.background = `linear-gradient(135deg, ${currentRank.color}, #ffcc00)`;
                 currentRankPoints.textContent = `积分: ${gameState.eloRating}`;
                 
+                // 计算进度条
                 const progress = Math.min(100, Math.max(0, 
                     ((gameState.eloRating - currentRank.min) / (currentRank.max - currentRank.min)) * 100
                 ));
@@ -1684,6 +1706,7 @@
                 rankProgressBar.style.width = `${progress}%`;
                 rankProgressText.textContent = `${Math.round(progress)}%`;
                 
+                // 更新段位列表中的当前段位高亮
                 document.querySelectorAll('.rank-item').forEach((item, index) => {
                     if (index === rankSystem.indexOf(currentRank)) {
                         item.classList.add('current');
@@ -1693,13 +1716,16 @@
                 });
             }
             
+            // 保存积分到localStorage
             function saveEloRating() {
                 localStorage.setItem('gomokuEloRating', gameState.eloRating.toString());
             }
             
+            // 根据胜利增加积分
             function addEloPoints() {
                 let points = 0;
                 
+                // 根据难度给予不同积分
                 switch (gameState.difficulty) {
                     case 'easy':
                         points = 10;
@@ -1719,9 +1745,11 @@
                 saveEloRating();
                 updateRankDisplay();
                 
+                // 显示获得积分提示
                 eggMessage.textContent += ` 获得${points}积分！`;
             }
             
+            // 初始化版本历史
             function initVersionHistory() {
                 versionHistory.forEach((item, index) => {
                     const versionItem = document.createElement('div');
@@ -1735,9 +1763,11 @@
                 });
             }
             
+            // 初始化棋盘
             function initBoard() {
                 board.innerHTML = '';
                 
+                // 添加棋盘上的五个点
                 const points = [
                     {row: 3, col: 3},
                     {row: 3, col: 11},
@@ -1755,6 +1785,7 @@
                         cell.addEventListener('click', () => makeMove(row, col));
                         board.appendChild(cell);
                         
+                        // 添加棋盘点
                         if (points.some(p => p.row === row && p.col === col)) {
                             const point = document.createElement('div');
                             point.className = 'board-point';
@@ -1766,13 +1797,16 @@
                 }
             }
             
+            // 播放音效
             function playSound(sound) {
                 if (!soundEnabled) return;
                 sound.currentTime = 0;
                 sound.play().catch(e => console.log("Audio play error:", e));
             }
             
+            // 绘制棋子
             function drawStones() {
+                // 移除现有的棋子
                 document.querySelectorAll('.stone').forEach(stone => stone.remove());
                 
                 for (let row = 0; row < 15; row++) {
@@ -1782,6 +1816,7 @@
                             const stone = document.createElement('div');
                             stone.className = `stone ${gameState.board[row][col] === 1 ? 'black' : 'red'}`;
                             
+                            // 标记最后一步
                             if (gameState.moves.length > 0) {
                                 const lastMove = gameState.moves[gameState.moves.length - 1];
                                 if (lastMove.row === row && lastMove.col === col) {
@@ -1795,13 +1830,16 @@
                 }
             }
             
+            // 下棋
             function makeMove(row, col) {
                 if (gameState.gameOver || gameState.board[row][col] !== 0) return;
                 
                 playSound(placeSound);
                 
+                // 保存当前状态用于悔棋
                 const prevBoard = JSON.parse(JSON.stringify(gameState.board));
                 
+                // 放置棋子
                 gameState.board[row][col] = gameState.currentPlayer;
                 gameState.moves.push({row, col, player: gameState.currentPlayer, prevBoard});
                 gameState.stats.moves++;
@@ -1809,6 +1847,7 @@
                 
                 drawStones();
                 
+                // 检查胜利
                 if (checkWin(row, col)) {
                     gameState.gameOver = true;
                     playSound(winSound);
@@ -1816,25 +1855,32 @@
                     return;
                 }
                 
+                // 切换玩家
                 gameState.currentPlayer = gameState.currentPlayer === 1 ? 2 : 1;
                 updateStatus();
                 
+                // 更新玩家指示器
                 playerBlack.classList.toggle('active', gameState.currentPlayer === 1);
                 playerRed.classList.toggle('active', gameState.currentPlayer === 2);
                 
+                // 更新回合指示器
                 turnIndicator.textContent = gameState.currentPlayer === 1 ? '黑方回合' : '红方回合';
                 turnIndicator.style.backgroundColor = gameState.currentPlayer === 1 ? '#333' : '#cc0000';
                 
+                // 如果是AI模式且轮到AI
                 if (gameState.mode === 'ai' && gameState.currentPlayer === 2 && !gameState.gameOver) {
                     setTimeout(makeAIMove, 300);
                 }
             }
             
+            // AI下棋
             function makeAIMove() {
                 if (gameState.gameOver) return;
                 
+                // 更新状态显示AI思考中
                 status.innerHTML = '<i class="fas fa-robot"></i> AI思考中 <span class="thinking"><span>.</span><span>.</span><span>.</span></span>';
                 
+                // 根据难度选择AI算法
                 setTimeout(() => {
                     let move;
                     switch (gameState.difficulty) {
@@ -1860,12 +1906,16 @@
                 }, 100);
             }
             
+            // 强化版简单AI
             function getEnhancedEasyAIMove() {
+                // 更新胜率显示
                 winChance.textContent = '40%';
                 
+                // 尝试找到可以获胜的位置
                 for (let row = 0; row < 15; row++) {
                     for (let col = 0; col < 15; col++) {
                         if (gameState.board[row][col] === 0) {
+                            // 检查AI是否可以在这里获胜
                             gameState.board[row][col] = gameState.currentPlayer;
                             if (checkWin(row, col)) {
                                 gameState.board[row][col] = 0;
@@ -1873,6 +1923,7 @@
                             }
                             gameState.board[row][col] = 0;
                             
+                            // 检查对手是否可以在这里获胜（防守）
                             const opponent = gameState.currentPlayer === 1 ? 2 : 1;
                             gameState.board[row][col] = opponent;
                             if (checkWin(row, col)) {
@@ -1884,10 +1935,12 @@
                     }
                 }
                 
+                // 没有立即威胁，随机选择但偏向中心
                 const centerBias = [];
                 for (let row = 0; row < 15; row++) {
                     for (let col = 0; col < 15; col++) {
                         if (gameState.board[row][col] === 0) {
+                            // 中心位置权重更高
                             const distToCenter = Math.abs(row - 7) + Math.abs(col - 7);
                             const weight = 20 - distToCenter;
                             for (let i = 0; i < weight; i++) {
@@ -1904,15 +1957,20 @@
                 return getRandomMove();
             }
             
+            // 强化版中等AI
             function getEnhancedMediumAIMove() {
+                // 设置搜索深度
                 const depth = 3;
                 gameState.stats.maxDepth = depth;
                 depthCount.textContent = depth;
                 
+                // 更新胜率显示
                 winChance.textContent = '20%';
                 
+                // 增强版中等AI策略
                 const bestMoves = [];
                 
+                // 1. 检查是否有获胜机会
                 for (let row = 0; row < 15; row++) {
                     for (let col = 0; col < 15; col++) {
                         if (gameState.board[row][col] === 0) {
@@ -1926,6 +1984,7 @@
                     }
                 }
                 
+                // 2. 阻止玩家获胜
                 for (let row = 0; row < 15; row++) {
                     for (let col = 0; col < 15; col++) {
                         if (gameState.board[row][col] === 0) {
@@ -1939,21 +1998,29 @@
                     }
                 }
                 
+                // 3. 构建进攻和防守模式
                 const patterns = [
+                    // 四子连珠
                     {pattern: [2, 2, 2, 2], score: 1000},
+                    // 三子连珠
                     {pattern: [0, 2, 2, 2, 0], score: 500},
+                    // 二子连珠
                     {pattern: [0, 2, 2, 0], score: 100},
+                    // 一子连珠
                     {pattern: [0, 2, 0], score: 10}
                 ];
                 
+                // 4. 评估每个空位
                 for (let row = 0; row < 15; row++) {
                     for (let col = 0; col < 15; col++) {
                         if (gameState.board[row][col] === 0) {
                             let score = 0;
                             
+                            // 中心位置分数加成
                             const centerDist = Math.abs(row - 7) + Math.abs(col - 7);
                             score += (14 - centerDist) * 2;
                             
+                            // 检查八个方向
                             const directions = [
                                 [0, 1], [1, 0], [1, 1], [1, -1], 
                                 [0, -1], [-1, 0], [-1, -1], [-1, 1]
@@ -1962,6 +2029,7 @@
                             for (const [dx, dy] of directions) {
                                 let line = [];
                                 
+                                // 获取一条线上的5个点
                                 for (let i = -4; i <= 4; i++) {
                                     const r = row + i * dx;
                                     const c = col + i * dy;
@@ -1969,10 +2037,11 @@
                                     if (r >= 0 && r < 15 && c >= 0 && c < 15) {
                                         line.push(gameState.board[r][c]);
                                     } else {
-                                        line.push(-1); 
+                                        line.push(-1); // 边界
                                     }
                                 }
                                 
+                                // 检查模式匹配
                                 for (const pat of patterns) {
                                     if (containsPattern(line, pat.pattern)) {
                                         score += pat.score;
@@ -1985,14 +2054,17 @@
                     }
                 }
                 
+                // 5. 选择分数最高的移动
                 bestMoves.sort((a, b) => b.score - a.score);
                 if (bestMoves.length > 0 && bestMoves[0].score > 0) {
                     return {row: bestMoves[0].row, col: bestMoves[0].col};
                 }
                 
+                // 6. 没有好的选择，随机移动
                 return getRandomMove();
             }
             
+            // 检查数组是否包含指定模式
             function containsPattern(arr, pattern) {
                 const len = pattern.length;
                 for (let i = 0; i <= arr.length - len; i++) {
@@ -2008,15 +2080,20 @@
                 return false;
             }
             
+            // 强化版困难AI
             function getEnhancedHardAIMove() {
+                // 设置更深的搜索深度
                 const depth = 5;
                 gameState.stats.maxDepth = depth;
                 depthCount.textContent = depth;
                 
+                // 更新胜率显示
                 winChance.textContent = '5%';
                 
+                // 困难AI策略 - 基于中等AI但更深入
                 const bestMoves = [];
                 
+                // 1. 检查获胜机会
                 for (let row = 0; row < 15; row++) {
                     for (let col = 0; col < 15; col++) {
                         if (gameState.board[row][col] === 0) {
@@ -2030,6 +2107,7 @@
                     }
                 }
                 
+                // 2. 阻止玩家获胜
                 for (let row = 0; row < 15; row++) {
                     for (let col = 0; col < 15; col++) {
                         if (gameState.board[row][col] === 0) {
@@ -2043,25 +2121,33 @@
                     }
                 }
                 
+                // 3. 更复杂的模式识别
                 const patterns = [
+                    // 四子连珠
                     {pattern: [0, 2, 2, 2, 2, 0], score: 2000},
                     {pattern: [0, 2, 2, 2, 2], score: 1500},
+                    // 三子连珠
                     {pattern: [0, 2, 2, 2, 0], score: 800},
                     {pattern: [0, 2, 2, 2], score: 400},
+                    // 双三连珠
                     {pattern: [0, 2, 0, 2, 2, 0], score: 700},
                     {pattern: [0, 2, 2, 0, 2, 0], score: 700},
+                    // 二子连珠
                     {pattern: [0, 2, 2, 0], score: 150},
                     {pattern: [0, 2, 0, 2, 0], score: 200}
                 ];
                 
+                // 4. 评估每个空位
                 for (let row = 0; row < 15; row++) {
                     for (let col = 0; col < 15; col++) {
                         if (gameState.board[row][col] === 0) {
                             let score = 0;
                             
+                            // 中心位置分数加成
                             const centerDist = Math.abs(row - 7) + Math.abs(col - 7);
                             score += (14 - centerDist) * 5;
                             
+                            // 检查八个方向
                             const directions = [
                                 [0, 1], [1, 0], [1, 1], [1, -1], 
                                 [0, -1], [-1, 0], [-1, -1], [-1, 1]
@@ -2070,6 +2156,7 @@
                             for (const [dx, dy] of directions) {
                                 let line = [];
                                 
+                                // 获取一条线上的7个点
                                 for (let i = -5; i <= 5; i++) {
                                     const r = row + i * dx;
                                     const c = col + i * dy;
@@ -2077,10 +2164,11 @@
                                     if (r >= 0 && r < 15 && c >= 0 && c < 15) {
                                         line.push(gameState.board[r][c]);
                                     } else {
-                                        line.push(-1); 
+                                        line.push(-1); // 边界
                                     }
                                 }
                                 
+                                // 检查模式匹配
                                 for (const pat of patterns) {
                                     if (containsPattern(line, pat.pattern)) {
                                         score += pat.score;
@@ -2093,27 +2181,32 @@
                     }
                 }
                 
+                // 5. 选择分数最高的移动
                 bestMoves.sort((a, b) => b.score - a.score);
                 if (bestMoves.length > 0 && bestMoves[0].score > 0) {
                     return {row: bestMoves[0].row, col: bestMoves[0].col};
                 }
                 
+                // 6. 没有好的选择，随机移动
                 return getRandomMove();
             }
             
+            // 万层地狱模式AI：完整Minimax算法实现
             function getUltimateHellAIMove() {
                 const startTime = Date.now();
                 const maxDepth = gameState.model === 'fullpower' ? 14 : 12;
-                const timeLimit = gameState.model === 'fullpower' ? 8000 : 5000; 
+                const timeLimit = gameState.model === 'fullpower' ? 8000 : 5000; // 满血版8秒，正常版5秒
                 
                 let bestMove = null;
                 let bestScore = -Infinity;
                 
+                // 生成候选移动
                 const moves = generateMovesUltimate();
                 if (moves.length === 0) {
                     return getRandomMove();
                 }
                 
+                // 使用迭代加深搜索
                 let depth = 2;
                 while (depth <= maxDepth && Date.now() - startTime < timeLimit) {
                     let currentBestMove = null;
@@ -2123,9 +2216,9 @@
                         if (Date.now() - startTime > timeLimit) break;
                         
                         const { row, col } = move;
-                        gameState.board[row][col] = 2; 
+                        gameState.board[row][col] = 2; // AI下子
                         const score = minimaxAlphaBeta(depth - 1, -Infinity, Infinity, false, startTime, timeLimit);
-                        gameState.board[row][col] = 0; 
+                        gameState.board[row][col] = 0; // 撤销下子
                         
                         if (score > currentBestScore) {
                             currentBestScore = score;
@@ -2138,12 +2231,15 @@
                         bestScore = currentBestScore;
                     }
                     
+                    // 更新实际搜索深度
                     gameState.stats.maxDepth = depth;
                     depth++;
                 }
                 
+                // 更新统计信息
                 depthCount.textContent = gameState.stats.maxDepth;
                 
+                // 计算胜率显示
                 const chance = gameState.model === 'fullpower' ? 
                     Math.max(0.01, Math.min(0.1, bestScore / 10000)) : 
                     Math.max(0.1, Math.min(0.3, bestScore / 5000));
@@ -2152,6 +2248,7 @@
                 return bestMove || moves[0];
             }
             
+            // 检查整个棋盘是否有胜利者
             function checkBoardWin() {
                 for (let row = 0; row < 15; row++) {
                     for (let col = 0; col < 15; col++) {
@@ -2163,16 +2260,19 @@
                 return 0;
             }
             
+            // 万层地狱专用移动生成
             function generateMovesUltimate() {
                 const moves = [];
                 
                 for (let row = 0; row < 15; row++) {
                     for (let col = 0; col < 15; col++) {
                         if (gameState.board[row][col] === 0 && hasNeighbor(row, col, 3)) {
+                            // 计算位置价值（中心位置价值更高）
                             const centerValue = 14 - (Math.abs(row - 7) + Math.abs(col - 7));
                             const playerThreat = countThreatsUltimate(row, col, 1);
                             const aiThreat = countThreatsUltimate(row, col, 2);
                             
+                            // 提升AI威胁权重
                             moves.push({
                                 row, 
                                 col, 
@@ -2182,11 +2282,14 @@
                     }
                 }
                 
+                // 按分数降序排序
                 moves.sort((a, b) => b.score - a.score);
                 
+                // 只返回前6个位置（优化性能）
                 return moves.slice(0, 6);
             }
             
+            // 检查是否有相邻棋子
             function hasNeighbor(row, col, distance = 2) {
                 for (let i = Math.max(0, row - distance); i <= Math.min(14, row + distance); i++) {
                     for (let j = Math.max(0, col - distance); j <= Math.min(14, col + distance); j++) {
@@ -2198,22 +2301,26 @@
                 return false;
             }
             
+            // 万层地狱专用威胁计算
             function countThreatsUltimate(row, col, player) {
                 let threatScore = 0;
                 const directions = [[1, 0], [0, 1], [1, 1], [1, -1]];
                 
                 for (const [dx, dy] of directions) {
+                    // 检查这个方向上的威胁
                     threatScore += evaluateDirectionUltimate(row, col, dx, dy, player);
                 }
                 
                 return threatScore;
             }
             
+            // 万层地狱专用方向评估
             function evaluateDirectionUltimate(row, col, dx, dy, player) {
                 let score = 0;
                 let count = 0;
                 let openEnds = 0;
                 
+                // 检查正向
                 for (let i = 1; i <= 6; i++) {
                     const r = row + i * dx;
                     const c = col + i * dy;
@@ -2230,6 +2337,7 @@
                     }
                 }
                 
+                // 检查反向
                 for (let i = 1; i <= 6; i++) {
                     const r = row - i * dx;
                     const c = col - i * dy;
@@ -2246,29 +2354,33 @@
                     }
                 }
                 
+                // 根据连续棋子和开放端评分
                 if (count >= 4) {
-                    score += 6000; 
+                    score += 6000; // 提升四连评分
                 } else if (count === 3) {
-                    if (openEnds === 2) score += 3000; 
-                    else if (openEnds === 1) score += 1200; 
+                    if (openEnds === 2) score += 3000; // 活三
+                    else if (openEnds === 1) score += 1200; // 眠三
                 } else if (count === 2) {
-                    if (openEnds === 2) score += 750; 
-                    else if (openEnds === 1) score += 225; 
+                    if (openEnds === 2) score += 750; // 活二
+                    else if (openEnds === 1) score += 225; // 眠二
                 } else if (count === 1) {
                     score += 45;
                 }
                 
+                // 特殊棋型检测
                 if (count === 4 && openEnds > 0) {
-                    score += 7500; 
+                    score += 7500; // 四连威胁
                 }
                 
                 return score;
             }
             
+            // 万层地狱专用评估函数
             function evaluateBoardUltimate() {
                 let aiScore = 0;
                 let playerScore = 0;
                 
+                // 评估所有位置
                 for (let row = 0; row < 15; row++) {
                     for (let col = 0; col < 15; col++) {
                         if (gameState.board[row][col] === 2) {
@@ -2279,19 +2391,22 @@
                     }
                 }
                 
+                // 中心控制加成（AI控制中心区域）
                 for (let row = 3; row <= 11; row++) {
                     for (let col = 3; col <= 11; col++) {
                         if (gameState.board[row][col] === 2) {
-                            aiScore += 60; 
+                            aiScore += 60; // 增加中心价值
                         } else if (gameState.board[row][col] === 1) {
                             playerScore += 30;
                         }
                     }
                 }
                 
+                // 增加玩家威胁权重
                 return aiScore - playerScore * 5.25;
             }
             
+            // 万层地狱专用位置评估
             function evaluatePositionUltimate(row, col, player) {
                 let score = 0;
                 const directions = [[1, 0], [0, 1], [1, 1], [1, -1]];
@@ -2303,11 +2418,14 @@
                 return score;
             }
             
+            // Minimax算法（带Alpha-Beta剪枝）
             function minimaxAlphaBeta(depth, alpha, beta, isMaximizing, startTime, timeLimit) {
+                // 检查是否超时
                 if (Date.now() - startTime > timeLimit) {
                     return isMaximizing ? -Infinity : Infinity;
                 }
                 
+                // 检查游戏是否结束
                 const winner = checkBoardWin();
                 if (winner !== 0 || depth === 0) {
                     return evaluateBoardUltimate();
@@ -2318,9 +2436,9 @@
                     const moves = generateMovesUltimate();
                     
                     for (const move of moves) {
-                        gameState.board[move.row][move.col] = 2; 
+                        gameState.board[move.row][move.col] = 2; // AI下子
                         const eval = minimaxAlphaBeta(depth - 1, alpha, beta, false, startTime, timeLimit);
-                        gameState.board[move.row][move.col] = 0; 
+                        gameState.board[move.row][move.col] = 0; // 撤销下子
                         
                         maxEval = Math.max(maxEval, eval);
                         alpha = Math.max(alpha, eval);
@@ -2332,9 +2450,9 @@
                     const moves = generateMovesUltimate();
                     
                     for (const move of moves) {
-                        gameState.board[move.row][move.col] = 1; 
+                        gameState.board[move.row][move.col] = 1; // 玩家下子
                         const eval = minimaxAlphaBeta(depth - 1, alpha, beta, true, startTime, timeLimit);
-                        gameState.board[move.row][move.col] = 0; 
+                        gameState.board[move.row][move.col] = 0; // 撤销下子
                         
                         minEval = Math.min(minEval, eval);
                         beta = Math.min(beta, eval);
@@ -2344,18 +2462,20 @@
                 }
             }
             
+            // 检查胜利条件
             function checkWin(row, col) {
                 const player = gameState.board[row][col];
                 const directions = [
-                    [0, 1],   
-                    [1, 0],   
-                    [1, 1],   
-                    [1, -1]   
+                    [0, 1],   // 水平
+                    [1, 0],   // 垂直
+                    [1, 1],   // 对角线
+                    [1, -1]   // 反对角线
                 ];
                 
                 for (const [dx, dy] of directions) {
                     let count = 1;
                     
+                    // 正向检查
                     for (let i = 1; i <= 4; i++) {
                         const newRow = row + i * dx;
                         const newCol = col + i * dy;
@@ -2367,6 +2487,7 @@
                         }
                     }
                     
+                    // 反向检查
                     for (let i = 1; i <= 4; i++) {
                         const newRow = row - i * dx;
                         const newCol = col - i * dy;
@@ -2386,6 +2507,7 @@
                 return false;
             }
             
+            // 更新状态信息
             function updateStatus() {
                 if (gameState.gameOver) return;
                 
@@ -2402,6 +2524,7 @@
                 }
             }
             
+            // 显示胜利信息
             function showWinner(player) {
                 winMessage.classList.add('show');
                 
@@ -2409,12 +2532,13 @@
                 let eggText = "";
                 
                 if (gameState.mode === 'ai') {
-                    if (player === 1) { 
+                    if (player === 1) { // 玩家赢了
                         winnerName = "你赢了!";
                         eggText = "这怎么可能，这可是我的自研AI";
                         
+                        // 玩家胜利增加积分
                         addEloPoints();
-                    } else { 
+                    } else { // AI赢了
                         winnerName = "AI赢了!";
                         eggText = "我就知道，这可是我的自研AI";
                     }
@@ -2438,6 +2562,7 @@
                 eggMessage.textContent = eggText;
             }
             
+            // 重新开始游戏
             function restartGame() {
                 gameState.board = Array(15).fill().map(() => Array(15).fill(0));
                 gameState.currentPlayer = 1;
@@ -2457,9 +2582,11 @@
                 drawStones();
                 updateStatus();
                 
+                // 重置悔棋次数
                 resetUndoCount();
             }
             
+            // 悔棋 (原函数)
             function undoMove() {
                 if (gameState.moves.length === 0 || gameState.gameOver) return;
                 
@@ -2480,17 +2607,21 @@
                 drawStones();
                 updateStatus();
                 
+                // 成功悔棋，增加悔棋次数
                 incrementUndoCount();
             }
             
+            // 设置游戏模式
             function setGameMode(mode) {
                 playSound(clickSound);
                 gameState.mode = mode;
                 aiModeBtn.classList.toggle('active', mode === 'ai');
                 pvpModeBtn.classList.toggle('active', mode === 'pvp');
                 
+                // 双人对战模式下隐藏AI难度面板
                 aiDifficultyPanel.style.display = mode === 'ai' ? 'block' : 'none';
                 
+                // 更新玩家名称
                 if (mode === 'pvp') {
                     document.querySelector('.player-info .player:first-child .player-name').textContent = "黑方玩家";
                     document.querySelector('.player-info .player:last-child .player-name').textContent = "红方玩家";
@@ -2502,6 +2633,7 @@
                 restartGame();
             }
             
+            // 设置AI难度
             function setAIDifficulty(difficulty) {
                 playSound(clickSound);
                 gameState.difficulty = difficulty;
@@ -2509,6 +2641,7 @@
                     btn.classList.toggle('active', btn.dataset.difficulty === difficulty);
                 });
                 
+                // 更新胜率显示
                 if (difficulty === 'easy') {
                     winChance.textContent = '40%';
                     ultimatehellWarning.style.display = 'none';
@@ -2528,6 +2661,7 @@
                 }
             }
             
+            // 设置AI模型
             function setAIModel(model) {
                 playSound(clickSound);
                 gameState.model = model;
@@ -2535,12 +2669,14 @@
                     btn.classList.toggle('active', btn.dataset.model === model);
                 });
                 
+                // 更新胜率显示
                 if (gameState.difficulty === 'ultimatehell') {
                     const chance = model === 'fullpower' ? 0.01 : 0.1;
                     winChance.textContent = `${chance.toFixed(2)}%`;
                 }
             }
             
+            // 随机移动
             function getRandomMove() {
                 const emptyCells = [];
                 for (let row = 0; row < 15; row++) {
@@ -2557,6 +2693,7 @@
                 return null;
             }
             
+            // 事件监听
             restartBtn.addEventListener('click', restartGame);
             playAgainBtn.addEventListener('click', () => {
                 playSound(clickSound);
@@ -2573,6 +2710,7 @@
                 btn.addEventListener('click', () => setAIModel(btn.dataset.model));
             });
             
+            // 音效开关
             soundToggle.addEventListener('click', () => {
                 soundEnabled = !soundEnabled;
                 soundToggle.innerHTML = soundEnabled ? 
@@ -2581,6 +2719,7 @@
                 playSound(clickSound);
             });
             
+            // 初始化游戏
             initGame();
         });
     </script>
