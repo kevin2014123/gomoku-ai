@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>五子棋挑战</title>
+    <title>五子棋挑战 · 万层地狱</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
@@ -1317,7 +1317,7 @@
         
 <header>
     <h1><i class="fas fa-chess-board"></i> 五子棋挑战Ultra</h1>
-    <div class="subtitle">挑战强化版地狱AI - 人类极限的考验</div>
+    <div class="subtitle">万层地狱 · 人类极限的考验</div>
     <div style="margin-top: 10px; font-size: 0.9rem; color: #ffcc00;">
         <div>
             GitHub仓库: 
@@ -1349,7 +1349,7 @@
                             <i class="fas fa-robot"></i>
                             <span>AI 对战</span>
                         </button>
-                        <button class="mode-btn" id="pvpMode">
+                        <button class="mode-btn" id="pvpMode" style="display: none;">
                             <i class="fas fa-users"></i>
                             <span>双人对战</span>
                         </button>
@@ -1361,9 +1361,9 @@
                         <i class="fas fa-brain"></i> AI 难度
                     </div>
                     <div class="difficulty-buttons">
-                        <button class="difficulty-btn" data-difficulty="easy">简单</button>
-                        <button class="difficulty-btn" data-difficulty="medium">中等</button>
-                        <button class="difficulty-btn hard" data-difficulty="hard">困难</button>
+                        <button class="difficulty-btn" data-difficulty="easy" style="display: none;">简单</button>
+                        <button class="difficulty-btn" data-difficulty="medium" style="display: none;">中等</button>
+                        <button class="difficulty-btn hard" data-difficulty="hard" style="display: none;">困难</button>
                         <button class="difficulty-btn ultimatehell active" data-difficulty="ultimatehell">万层地狱</button>
                     </div>
                     
@@ -1373,9 +1373,6 @@
                     <div class="difficulty-info">
                         <p><strong>难度说明：</strong></p>
                         <ul style="text-align: left; padding-left: 20px; margin-top: 5px;">
-                            <li><b>简单</b>：基础防守策略，玩家胜率约40%</li>
-                            <li><b>中等</b>：攻防兼备策略，玩家胜率约20%</li>
-                            <li><b>困难</b>：深度搜索算法，玩家胜率约5%</li>
                             <li><b>万层地狱</b>：预判对手+深度思考，玩家胜率低于0.1%</li>
                         </ul>
                     </div>
@@ -1475,15 +1472,12 @@
                 <i class="fas fa-book"></i> 段位规则说明
             </div>
             <div class="rules-content">
-                <p>本游戏采用积分段位系统，玩家通过战胜不同难度的AI获得积分：</p>
+                <p>本游戏采用积分段位系统，玩家通过战胜AI获得积分：</p>
                 <ul>
-                    <li><b>战胜简单AI</b>：获得 <span style="color:#ffcc00">10</span> 积分</li>
-                    <li><b>战胜中等AI</b>：获得 <span style="color:#ffcc00">30</span> 积分</li>
-                    <li><b>战胜困难AI</b>：获得 <span style="color:#ffcc00">50</span> 积分</li>
-                    <li><b>战胜万层地狱AI</b>：获得 <span style="color:#ffcc00">100-300</span> 积分</li>
+                    <li><b>战胜万层地狱AI</b>：获得 <span style="color:#ffcc00">200-300</span> 积分</li>
                     <li><b>积分永久保存</b>，可在浏览器中查看</li>
                 </ul>
-                <p style="margin-top:10px;color:#ff9900">提示：万层地狱模式满血版胜利可获得最高300积分！</p>
+                <p style="margin-top:10px;color:#ff9900">提示：满血版胜利可获得最高300积分！</p>
             </div>
         </div>
         
@@ -1505,6 +1499,10 @@
                 <i class="fas fa-play-circle"></i>
                 再来一局
             </button>
+            <button id="viewBoardBtn" class="control-btn" style="margin-top: 15px; background: linear-gradient(to bottom, #2a56b0, #1a3a7a);">
+                <i class="fas fa-eye"></i>
+                查看棋盘
+            </button>
         </div>
     </div>
     
@@ -1521,6 +1519,7 @@
             const eggMessage = document.getElementById('eggMessage');
             const restartBtn = document.getElementById('restartBtn');
             const playAgainBtn = document.getElementById('playAgainBtn');
+            const viewBoardBtn = document.getElementById('viewBoardBtn');
             const undoBtn = document.getElementById('undoBtn');
             const aiModeBtn = document.getElementById('aiMode');
             const pvpModeBtn = document.getElementById('pvpMode');
@@ -1688,27 +1687,10 @@
             }
             
             function addEloPoints() {
-                let points = 0;
-                
-                switch (gameState.difficulty) {
-                    case 'easy':
-                        points = 10;
-                        break;
-                    case 'medium':
-                        points = 30;
-                        break;
-                    case 'hard':
-                        points = 50;
-                        break;
-                    case 'ultimatehell':
-                        points = gameState.model === 'fullpower' ? 300 : 200;
-                        break;
-                }
-                
+                let points = gameState.model === 'fullpower' ? 300 : 200;
                 gameState.eloRating += points;
                 saveEloRating();
                 updateRankDisplay();
-                
                 eggMessage.textContent += ` 获得${points}积分！`;
             }
             
@@ -1826,269 +1808,11 @@
                 status.innerHTML = '<i class="fas fa-robot"></i> AI思考中 <span class="thinking"><span>.</span><span>.</span><span>.</span></span>';
                 
                 setTimeout(() => {
-                    let move;
-                    switch (gameState.difficulty) {
-                        case 'easy':
-                            move = getEnhancedEasyAIMove();
-                            break;
-                        case 'medium':
-                            move = getEnhancedMediumAIMove();
-                            break;
-                        case 'hard':
-                            move = getEnhancedHardAIMove();
-                            break;
-                        case 'ultimatehell':
-                            move = getUltimateHellAIMove();
-                            break;
-                        default:
-                            move = getEnhancedMediumAIMove();
-                    }
-                    
+                    let move = getUltimateHellAIMove();
                     if (move) {
                         makeMove(move.row, move.col);
                     }
                 }, 100);
-            }
-            
-            function getEnhancedEasyAIMove() {
-                winChance.textContent = '40%';
-                
-                for (let row = 0; row < 15; row++) {
-                    for (let col = 0; col < 15; col++) {
-                        if (gameState.board[row][col] === 0) {
-                            gameState.board[row][col] = gameState.currentPlayer;
-                            if (checkWin(row, col)) {
-                                gameState.board[row][col] = 0;
-                                return {row, col};
-                            }
-                            gameState.board[row][col] = 0;
-                            
-                            const opponent = gameState.currentPlayer === 1 ? 2 : 1;
-                            gameState.board[row][col] = opponent;
-                            if (checkWin(row, col)) {
-                                gameState.board[row][col] = 0;
-                                return {row, col};
-                            }
-                            gameState.board[row][col] = 0;
-                        }
-                    }
-                }
-                
-                const centerBias = [];
-                for (let row = 0; row < 15; row++) {
-                    for (let col = 0; col < 15; col++) {
-                        if (gameState.board[row][col] === 0) {
-                            const distToCenter = Math.abs(row - 7) + Math.abs(col - 7);
-                            const weight = 20 - distToCenter;
-                            for (let i = 0; i < weight; i++) {
-                                centerBias.push({row, col});
-                            }
-                        }
-                    }
-                }
-                
-                if (centerBias.length > 0) {
-                    return centerBias[Math.floor(Math.random() * centerBias.length)];
-                }
-                
-                return getRandomMove();
-            }
-            
-            function getEnhancedMediumAIMove() {
-                const depth = 3;
-                gameState.stats.maxDepth = depth;
-                depthCount.textContent = depth;
-                
-                winChance.textContent = '20%';
-                
-                const bestMoves = [];
-                
-                for (let row = 0; row < 15; row++) {
-                    for (let col = 0; col < 15; col++) {
-                        if (gameState.board[row][col] === 0) {
-                            gameState.board[row][col] = 2;
-                            if (checkWin(row, col)) {
-                                gameState.board[row][col] = 0;
-                                return {row, col};
-                            }
-                            gameState.board[row][col] = 0;
-                        }
-                    }
-                }
-                
-                for (let row = 0; row < 15; row++) {
-                    for (let col = 0; col < 15; col++) {
-                        if (gameState.board[row][col] === 0) {
-                            gameState.board[row][col] = 1;
-                            if (checkWin(row, col)) {
-                                gameState.board[row][col] = 0;
-                                return {row, col};
-                            }
-                            gameState.board[row][col] = 0;
-                        }
-                    }
-                }
-                
-                const patterns = [
-                    {pattern: [2, 2, 2, 2], score: 1000},
-                    {pattern: [0, 2, 2, 2, 0], score: 500},
-                    {pattern: [0, 2, 2, 0], score: 100},
-                    {pattern: [0, 2, 0], score: 10}
-                ];
-                
-                for (let row = 0; row < 15; row++) {
-                    for (let col = 0; col < 15; col++) {
-                        if (gameState.board[row][col] === 0) {
-                            let score = 0;
-                            
-                            const centerDist = Math.abs(row - 7) + Math.abs(col - 7);
-                            score += (14 - centerDist) * 2;
-                            
-                            const directions = [
-                                [0, 1], [1, 0], [1, 1], [1, -1], 
-                                [0, -1], [-1, 0], [-1, -1], [-1, 1]
-                            ];
-                            
-                            for (const [dx, dy] of directions) {
-                                let line = [];
-                                
-                                for (let i = -4; i <= 4; i++) {
-                                    const r = row + i * dx;
-                                    const c = col + i * dy;
-                                    
-                                    if (r >= 0 && r < 15 && c >= 0 && c < 15) {
-                                        line.push(gameState.board[r][c]);
-                                    } else {
-                                        line.push(-1);
-                                    }
-                                }
-                                
-                                for (const pat of patterns) {
-                                    if (containsPattern(line, pat.pattern)) {
-                                        score += pat.score;
-                                    }
-                                }
-                            }
-                            
-                            bestMoves.push({row, col, score});
-                        }
-                    }
-                }
-                
-                bestMoves.sort((a, b) => b.score - a.score);
-                if (bestMoves.length > 0 && bestMoves[0].score > 0) {
-                    return {row: bestMoves[0].row, col: bestMoves[0].col};
-                }
-                
-                return getRandomMove();
-            }
-            
-            function containsPattern(arr, pattern) {
-                const len = pattern.length;
-                for (let i = 0; i <= arr.length - len; i++) {
-                    let match = true;
-                    for (let j = 0; j < len; j++) {
-                        if (arr[i + j] !== pattern[j]) {
-                            match = false;
-                            break;
-                        }
-                    }
-                    if (match) return true;
-                }
-                return false;
-            }
-            
-            function getEnhancedHardAIMove() {
-                const depth = 5;
-                gameState.stats.maxDepth = depth;
-                depthCount.textContent = depth;
-                
-                winChance.textContent = '5%';
-                
-                const bestMoves = [];
-                
-                for (let row = 0; row < 15; row++) {
-                    for (let col = 0; col < 15; col++) {
-                        if (gameState.board[row][col] === 0) {
-                            gameState.board[row][col] = 2;
-                            if (checkWin(row, col)) {
-                                gameState.board[row][col] = 0;
-                                return {row, col};
-                            }
-                            gameState.board[row][col] = 0;
-                        }
-                    }
-                }
-                
-                for (let row = 0; row < 15; row++) {
-                    for (let col = 0; col < 15; col++) {
-                        if (gameState.board[row][col] === 0) {
-                            gameState.board[row][col] = 1;
-                            if (checkWin(row, col)) {
-                                gameState.board[row][col] = 0;
-                                return {row, col};
-                            }
-                            gameState.board[row][col] = 0;
-                        }
-                    }
-                }
-                
-                const patterns = [
-                    {pattern: [0, 2, 2, 2, 2, 0], score: 2000},
-                    {pattern: [0, 2, 2, 2, 2], score: 1500},
-                    {pattern: [0, 2, 2, 2, 0], score: 800},
-                    {pattern: [0, 2, 2, 2], score: 400},
-                    {pattern: [0, 2, 0, 2, 2, 0], score: 700},
-                    {pattern: [0, 2, 2, 0, 2, 0], score: 700},
-                    {pattern: [0, 2, 2, 0], score: 150},
-                    {pattern: [0, 2, 0, 2, 0], score: 200}
-                ];
-                
-                for (let row = 0; row < 15; row++) {
-                    for (let col = 0; col < 15; col++) {
-                        if (gameState.board[row][col] === 0) {
-                            let score = 0;
-                            
-                            const centerDist = Math.abs(row - 7) + Math.abs(col - 7);
-                            score += (14 - centerDist) * 5;
-                            
-                            const directions = [
-                                [0, 1], [1, 0], [1, 1], [1, -1], 
-                                [0, -1], [-1, 0], [-1, -1], [-1, 1]
-                            ];
-                            
-                            for (const [dx, dy] of directions) {
-                                let line = [];
-                                
-                                for (let i = -5; i <= 5; i++) {
-                                    const r = row + i * dx;
-                                    const c = col + i * dy;
-                                    
-                                    if (r >= 0 && r < 15 && c >= 0 && c < 15) {
-                                        line.push(gameState.board[r][c]);
-                                    } else {
-                                        line.push(-1);
-                                    }
-                                }
-                                
-                                for (const pat of patterns) {
-                                    if (containsPattern(line, pat.pattern)) {
-                                        score += pat.score;
-                                    }
-                                }
-                            }
-                            
-                            bestMoves.push({row, col, score});
-                        }
-                    }
-                }
-                
-                bestMoves.sort((a, b) => b.score - a.score);
-                if (bestMoves.length > 0 && bestMoves[0].score > 0) {
-                    return {row: bestMoves[0].row, col: bestMoves[0].col};
-                }
-                
-                return getRandomMove();
             }
             
             function getUltimateHellAIMove() {
@@ -2379,16 +2103,10 @@
             function updateStatus() {
                 if (gameState.gameOver) return;
                 
-                if (gameState.mode === 'ai') {
-                    if (gameState.currentPlayer === 1) {
-                        status.innerHTML = '<i class="fas fa-chess"></i> 你的回合 (黑棋)';
-                    } else {
-                        status.innerHTML = '<i class="fas fa-robot"></i> AI思考中 <span class="thinking"><span>.</span><span>.</span><span>.</span></span>';
-                    }
+                if (gameState.currentPlayer === 1) {
+                    status.innerHTML = '<i class="fas fa-chess"></i> 你的回合 (黑棋)';
                 } else {
-                    status.innerHTML = gameState.currentPlayer === 1 ? 
-                        '<i class="fas fa-chess"></i> 黑方回合' : 
-                        '<i class="fas fa-chess"></i> 红方回合';
+                    status.innerHTML = '<i class="fas fa-robot"></i> AI思考中 <span class="thinking"><span>.</span><span>.</span><span>.</span></span>';
                 }
             }
             
@@ -2398,26 +2116,21 @@
                 let winnerName;
                 let eggText = "";
                 
-                if (gameState.mode === 'ai') {
-                    if (player === 1) {
-                        winnerName = "你赢了!";
-                        eggText = "这怎么可能，这可是我的自研AI";
-                        
-                        addEloPoints();
-                    } else {
-                        winnerName = "AI赢了!";
-                        eggText = "我就知道，这可是我的自研AI";
-                    }
-                    
-                    if (player === 1) {
-                        gameState.stats.playerWins++;
-                        playerScore.textContent = gameState.stats.playerWins;
-                    } else {
-                        gameState.stats.aiWins++;
-                        aiScore.textContent = gameState.stats.aiWins;
-                    }
+                if (player === 1) {
+                    winnerName = "你赢了!";
+                    eggText = "这怎么可能，这可是我的自研AI";
+                    addEloPoints();
                 } else {
-                    winnerName = player === 1 ? "黑方获胜!" : "红方获胜!";
+                    winnerName = "AI赢了!";
+                    eggText = "我就知道，这可是我的自研AI";
+                }
+                
+                if (player === 1) {
+                    gameState.stats.playerWins++;
+                    playerScore.textContent = gameState.stats.playerWins;
+                } else {
+                    gameState.stats.aiWins++;
+                    aiScore.textContent = gameState.stats.aiWins;
                 }
                 
                 winnerDisplay.innerHTML = `
@@ -2473,51 +2186,6 @@
                 incrementUndoCount();
             }
             
-            function setGameMode(mode) {
-                playSound(clickSound);
-                gameState.mode = mode;
-                aiModeBtn.classList.toggle('active', mode === 'ai');
-                pvpModeBtn.classList.toggle('active', mode === 'pvp');
-                
-                aiDifficultyPanel.style.display = mode === 'ai' ? 'block' : 'none';
-                
-                if (mode === 'pvp') {
-                    document.querySelector('.player-info .player:first-child .player-name').textContent = "黑方玩家";
-                    document.querySelector('.player-info .player:last-child .player-name').textContent = "红方玩家";
-                } else {
-                    document.querySelector('.player-info .player:first-child .player-name').textContent = "玩家";
-                    document.querySelector('.player-info .player:last-child .player-name').textContent = "AI";
-                }
-                
-                restartGame();
-            }
-            
-            function setAIDifficulty(difficulty) {
-                playSound(clickSound);
-                gameState.difficulty = difficulty;
-                difficultyBtns.forEach(btn => {
-                    btn.classList.toggle('active', btn.dataset.difficulty === difficulty);
-                });
-                
-                if (difficulty === 'easy') {
-                    winChance.textContent = '40%';
-                    ultimatehellWarning.style.display = 'none';
-                    modelSelection.style.display = 'none';
-                } else if (difficulty === 'medium') {
-                    winChance.textContent = '20%';
-                    ultimatehellWarning.style.display = 'none';
-                    modelSelection.style.display = 'none';
-                } else if (difficulty === 'hard') {
-                    winChance.textContent = '5%';
-                    ultimatehellWarning.style.display = 'none';
-                    modelSelection.style.display = 'none';
-                } else if (difficulty === 'ultimatehell') {
-                    winChance.textContent = '0.1%';
-                    ultimatehellWarning.style.display = 'block';
-                    modelSelection.style.display = 'block';
-                }
-            }
-            
             function setAIModel(model) {
                 playSound(clickSound);
                 gameState.model = model;
@@ -2525,10 +2193,8 @@
                     btn.classList.toggle('active', btn.dataset.model === model);
                 });
                 
-                if (gameState.difficulty === 'ultimatehell') {
-                    const chance = model === 'fullpower' ? 0.01 : 0.1;
-                    winChance.textContent = `${chance.toFixed(2)}%`;
-                }
+                const chance = model === 'fullpower' ? 0.01 : 0.1;
+                winChance.textContent = `${chance.toFixed(2)}%`;
             }
             
             function getRandomMove() {
@@ -2553,12 +2219,12 @@
                 winMessage.classList.remove('show');
                 restartGame();
             });
-            undoBtn.addEventListener('click', undoMove);
-            aiModeBtn.addEventListener('click', () => setGameMode('ai'));
-            pvpModeBtn.addEventListener('click', () => setGameMode('pvp'));
-            difficultyBtns.forEach(btn => {
-                btn.addEventListener('click', () => setAIDifficulty(btn.dataset.difficulty));
+            viewBoardBtn.addEventListener('click', () => {
+                playSound(clickSound);
+                winMessage.classList.remove('show');
             });
+            undoBtn.addEventListener('click', undoMove);
+            
             modelBtns.forEach(btn => {
                 btn.addEventListener('click', () => setAIModel(btn.dataset.model));
             });
