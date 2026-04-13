@@ -1,4 +1,4 @@
-// script.js - 五子棋 Ultra 强化版 AI (轻量·致命·无延迟)
+// script.js - 五子棋 Ultra 致命强化版 (修复必胜bug)
 document.addEventListener('DOMContentLoaded', () => {
     const board = document.getElementById('board');
     const status = document.getElementById('status');
@@ -88,7 +88,8 @@ document.addEventListener('DOMContentLoaded', () => {
         { version: "13.0", description: "修复中等/困难模式AI功能缺失问题" },
         { version: "13.1", description: "优化双人对战模式体验" },
         { version: "14.0 Ultra", description: "全面升级，修复了无数个bug，提升了所有难度的 AI，所以我将它命名为 Ultra" },
-        { version: "15.0 致命强化", description: "AI棋力暴增50%+，人类胜率归零，一旦破绽立即绝杀！" }
+        { version: "15.0 致命强化", description: "AI棋力暴增50%+，人类胜率归零，一旦破绽立即绝杀！" },
+        { version: "15.1 修复必胜bug", description: "修复AI放弃活四去防守的严重bug，现在AI绝不会错过任何直接胜利的机会。" }
     ];
     
     let undoCount = 0;
@@ -287,8 +288,30 @@ document.addEventListener('DOMContentLoaded', () => {
         turnIndicator.style.backgroundColor = gameState.currentPlayer === 1 ? '#333' : '#cc0000';
         
         if (gameState.mode === 'ai' && gameState.currentPlayer === 2 && !gameState.gameOver) {
-            setTimeout(makeAIMove, 150); // 响应更迅速
+            setTimeout(makeAIMove, 100);
         }
+    }
+    
+    // ========== 修复后的AI核心 ==========
+    
+    // 方向向量
+    const DIRS = [[1,0],[0,1],[1,1],[1,-1]];
+    
+    // 检查是否存在直接胜利的着法 (对于指定玩家)
+    function findWinningMove(player) {
+        for (let r = 0; r < 15; r++) {
+            for (let c = 0; c < 15; c++) {
+                if (gameState.board[r][c] !== 0) continue;
+                // 尝试落子
+                gameState.board[r][c] = player;
+                if (checkWin(r, c)) {
+                    gameState.board[r][c] = 0;
+                    return { row: r, col: c };
+                }
+                gameState.board[r][c] = 0;
+            }
+        }
+        return null;
     }
     
     function makeAIMove() {
@@ -297,60 +320,42 @@ document.addEventListener('DOMContentLoaded', () => {
         status.innerHTML = '<i class="fas fa-robot"></i> AI思考中 <span class="thinking"><span>.</span><span>.</span><span>.</span></span>';
         
         setTimeout(() => {
+            // 第一步：立即检查自己能否直接获胜
+            let winMove = findWinningMove(2);
+            if (winMove) {
+                makeMove(winMove.row, winMove.col);
+                return;
+            }
+            
+            // 第二步：检查玩家是否即将获胜，必须防守
+            let playerWinMove = findWinningMove(1);
+            if (playerWinMove) {
+                makeMove(playerWinMove.row, playerWinMove.col);
+                return;
+            }
+            
+            // 第三步：正常搜索
             let move = getUltimateHellAIMove();
             if (move) {
                 makeMove(move.row, move.col);
             }
-        }, 50); // 几乎无延迟，速战速决
+        }, 30);
     }
     
-    // ========== 全新 AI 核心：轻量·致命 ==========
-    // 棋型模式权重表 (用于快速评估)
-    const PATTERNS = {
-        // 连五 (实际胜利在checkWin中判定，这里用于评估)
-        FIVE: 1000000,
-        // 活四 (两头无阻)
-        FLEX4: 500000,
-        // 冲四 (一头被堵)
-        BLOCK4: 8000,
-        // 活三 (能形成活四)
-        FLEX3: 5000,
-        // 眠三 (只能形成冲四)
-        SLEEP3: 800,
-        // 活二
-        FLEX2: 500,
-        // 眠二
-        SLEEP2: 50,
-        // 单子周围潜力
-        POTENTIAL: 5
-    };
-    
-    // 方向向量
-    const DIRS = [[1,0],[0,1],[1,1],[1,-1]];
-    
-    // 快速评估单个位置对某玩家的价值 (基于棋型)
-    function evaluatePosition(row, col, player) {
-        let totalScore = 0;
-        for (let [dx, dy] of DIRS) {
-            totalScore += evaluateDirection(row, col, dx, dy, player);
-        }
-        return totalScore;
-    }
-    
+    // 评估单个方向上的棋型 (返回分数和类型)
     function evaluateDirection(row, col, dx, dy, player) {
-        // 向正方向计数
         let count = 1;
         let openLeft = 0, openRight = 0;
         
-        // 正方向延伸
+        // 正方向
         for (let i = 1; i < 5; i++) {
             let r = row + i*dx, c = col + i*dy;
             if (r<0||r>=15||c<0||c>=15) break;
             if (gameState.board[r][c] === player) count++;
             else if (gameState.board[r][c] === 0) { openRight++; break; }
-            else break; // 对方棋子阻挡
+            else break;
         }
-        // 负方向延伸
+        // 负方向
         for (let i = 1; i < 5; i++) {
             let r = row - i*dx, c = col - i*dy;
             if (r<0||r>=15||c<0||c>=15) break;
@@ -361,29 +366,34 @@ document.addEventListener('DOMContentLoaded', () => {
         
         let openEnds = openLeft + openRight;
         
-        // 根据连续棋子数和开放端返回分数
-        if (count >= 5) return PATTERNS.FIVE;
+        if (count >= 5) return 10000000; // 连五
         if (count === 4) {
-            if (openEnds >= 1) return PATTERNS.FLEX4; // 活四或冲四但可成五
-            else return PATTERNS.BLOCK4;
+            if (openEnds >= 1) return 500000; // 活四
+            else return 8000; // 冲四
         }
         if (count === 3) {
-            if (openEnds === 2) return PATTERNS.FLEX3;
-            if (openEnds === 1) return PATTERNS.SLEEP3 * 1.5; // 有潜力的眠三
-            return PATTERNS.SLEEP3;
+            if (openEnds === 2) return 5000; // 活三
+            if (openEnds === 1) return 1200; // 眠三(有潜力)
+            return 800;
         }
         if (count === 2) {
-            if (openEnds === 2) return PATTERNS.FLEX2;
-            if (openEnds === 1) return PATTERNS.SLEEP2;
+            if (openEnds === 2) return 500;
+            if (openEnds === 1) return 100;
         }
-        if (count === 1) return PATTERNS.POTENTIAL;
+        if (count === 1) return 5;
         return 0;
     }
     
-    // 全局评估函数：AI(2) vs 玩家(1)，并极度加强防守倾向
+    function evaluatePosition(row, col, player) {
+        let total = 0;
+        for (let [dx, dy] of DIRS) {
+            total += evaluateDirection(row, col, dx, dy, player);
+        }
+        return total;
+    }
+    
     function evaluateBoardUltimate() {
         let aiScore = 0, playerScore = 0;
-        // 遍历棋盘，累加棋型分数
         for (let r=0; r<15; r++) {
             for (let c=0; c<15; c++) {
                 if (gameState.board[r][c] === 2) {
@@ -393,42 +403,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         }
-        // 位置加成 (中心及周围)
+        // 中心偏好
         for (let r=3; r<=11; r++) {
             for (let c=3; c<=11; c++) {
                 if (gameState.board[r][c] === 2) aiScore += 30;
                 else if (gameState.board[r][c] === 1) playerScore += 15;
             }
         }
-        // 防守系数：对玩家的棋型给予极高惩罚 (玩家每有活三以上就疯狂防守)
-        // 这样AI会不惜代价堵玩家
-        return aiScore - playerScore * 8.0; // 防守权重提升，见破绽必杀
-    }
-    
-    // 生成候选着法 (高效且聚焦)
-    function generateMovesUltimate() {
-        let candidates = [];
-        // 扫描全棋盘，收集所有空位附近有棋子的点 (范围2)
-        for (let r=0; r<15; r++) {
-            for (let c=0; c<15; c++) {
-                if (gameState.board[r][c] !== 0) continue;
-                if (!hasNeighbor(r, c, 2)) continue; // 无邻居跳过，大幅减少候选
-                
-                // 快速计算进攻分(AI)和防守分(玩家)
-                let aiScore = evaluatePosition(r, c, 2);
-                let playerScore = evaluatePosition(r, c, 1);
-                
-                // 综合分 = 进攻分 + 防守分*防守系数 (防玩家威胁)
-                let total = aiScore + playerScore * 7.5;
-                // 中心偏好
-                total += 14 - (Math.abs(r-7) + Math.abs(c-7));
-                
-                candidates.push({row: r, col: c, score: total});
-            }
-        }
-        // 按分数降序排序，取前12个用于搜索 (保证轻量)
-        candidates.sort((a,b) => b.score - a.score);
-        return candidates.slice(0, 12);
+        // 防守系数：对玩家棋型高度重视
+        return aiScore - playerScore * 8.0;
     }
     
     function hasNeighbor(row, col, distance=2) {
@@ -438,6 +421,26 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         return false;
+    }
+    
+    function generateMovesUltimate() {
+        let candidates = [];
+        for (let r=0; r<15; r++) {
+            for (let c=0; c<15; c++) {
+                if (gameState.board[r][c] !== 0) continue;
+                if (!hasNeighbor(r, c, 2)) continue;
+                
+                // 快速评估进攻和防守分
+                let aiScore = evaluatePosition(r, c, 2);
+                let playerScore = evaluatePosition(r, c, 1);
+                let total = aiScore + playerScore * 7.5;
+                total += 14 - (Math.abs(r-7) + Math.abs(c-7));
+                
+                candidates.push({row: r, col: c, score: total});
+            }
+        }
+        candidates.sort((a,b) => b.score - a.score);
+        return candidates.slice(0, 12);
     }
     
     function checkBoardWin() {
@@ -451,28 +454,36 @@ document.addEventListener('DOMContentLoaded', () => {
         return 0;
     }
     
-    // 迭代加深 + Alpha-Beta
     function getUltimateHellAIMove() {
         const startTime = Date.now();
-        const maxDepth = gameState.model === 'fullpower' ? 12 : 10; // 深度略降但棋力更强，因为评估精准
-        const timeLimit = gameState.model === 'fullpower' ? 3000 : 2000; // 更短时限，速战速决
+        const maxDepth = gameState.model === 'fullpower' ? 12 : 10;
+        const timeLimit = gameState.model === 'fullpower' ? 3000 : 2000;
         
         let bestMove = null;
         let bestScore = -Infinity;
         
-        const moves = generateMovesUltimate();
+        let moves = generateMovesUltimate();
         if (moves.length === 0) return getRandomMove();
         
-        // 迭代加深
+        // 再次确认无直接获胜点 (保险)
+        let winMove = findWinningMove(2);
+        if (winMove) return winMove;
+        
         for (let depth = 2; depth <= maxDepth; depth++) {
             if (Date.now() - startTime > timeLimit) break;
             let currentBest = null;
             let currentScore = -Infinity;
             
-            // 着法排序：先搜历史最佳
             for (let move of moves) {
                 if (Date.now() - startTime > timeLimit) break;
                 gameState.board[move.row][move.col] = 2;
+                // 如果这一步能直接赢，给予极大值
+                if (checkWin(move.row, move.col)) {
+                    gameState.board[move.row][move.col] = 0;
+                    depthCount.textContent = depth;
+                    winChance.textContent = '0.00%';
+                    return move;
+                }
                 let score = minimaxAlphaBeta(depth-1, -Infinity, Infinity, false, startTime, timeLimit);
                 gameState.board[move.row][move.col] = 0;
                 
@@ -489,18 +500,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         depthCount.textContent = gameState.stats.maxDepth;
-        // 胜率预测——几乎为0
         winChance.textContent = '0.00%';
         return bestMove || moves[0];
     }
     
     function minimaxAlphaBeta(depth, alpha, beta, isMaximizing, startTime, timeLimit) {
         if (Date.now() - startTime > timeLimit) {
-            return evaluateBoardUltimate(); // 超时返回静态评估
+            return evaluateBoardUltimate();
         }
         let winner = checkBoardWin();
         if (winner !== 0) {
-            return winner === 2 ? 10000000 : -10000000;
+            return winner === 2 ? 100000000 : -100000000;
         }
         if (depth === 0) {
             return evaluateBoardUltimate();
@@ -513,6 +523,11 @@ document.addEventListener('DOMContentLoaded', () => {
             let maxEval = -Infinity;
             for (let move of moves) {
                 gameState.board[move.row][move.col] = 2;
+                // 直接获胜检查
+                if (checkWin(move.row, move.col)) {
+                    gameState.board[move.row][move.col] = 0;
+                    return 100000000;
+                }
                 let eval = minimaxAlphaBeta(depth-1, alpha, beta, false, startTime, timeLimit);
                 gameState.board[move.row][move.col] = 0;
                 maxEval = Math.max(maxEval, eval);
@@ -524,6 +539,10 @@ document.addEventListener('DOMContentLoaded', () => {
             let minEval = Infinity;
             for (let move of moves) {
                 gameState.board[move.row][move.col] = 1;
+                if (checkWin(move.row, move.col)) {
+                    gameState.board[move.row][move.col] = 0;
+                    return -100000000;
+                }
                 let eval = minimaxAlphaBeta(depth-1, alpha, beta, true, startTime, timeLimit);
                 gameState.board[move.row][move.col] = 0;
                 minEval = Math.min(minEval, eval);
