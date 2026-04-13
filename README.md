@@ -37,9 +37,6 @@ AI难度等级 / AI Difficulty Levels:
 
 优化 / Optimization: 移动排序 / Move ordering, 只评估有相邻棋子的位置 / Only evaluate positions with adjacent stones
 
-## 项目结构 / Project Structure
-
-单文件设计 / Single file design: index.html包含全部代码 / Contains all code, 零依赖 / Zero dependencies, 直接部署 / Direct deployment
 
 ## 本地运行 / Local Run
 
