@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>五子棋挑战 · 万层地狱</title>
-    <!-- Font Awesome 图标库 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- 外部样式表 -->
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -56,7 +54,8 @@
                             <i class="fas fa-robot"></i>
                             <span>AI 对战</span>
                         </button>
-                        <button class="mode-btn" id="pvpMode" style="display: none;">
+                        <!-- 双人对战按钮：已移除 style="display: none;"，恢复正常显示 -->
+                        <button class="mode-btn" id="pvpMode">
                             <i class="fas fa-users"></i>
                             <span>双人对战</span>
                         </button>
@@ -213,12 +212,10 @@
         </div>
     </div>
     
-    <!-- 音效资源 (在线) -->
     <audio id="placeSound" src="https://assets.mixkit.co/sfx/preview/mixkit-arcade-game-jump-coin-216.mp3"></audio>
     <audio id="winSound" src="https://assets.mixkit.co/sfx/preview/mixkit-winning-chimes-2015.mp3"></audio>
     <audio id="clickSound" src="https://assets.mixkit.co/sfx/preview/mixkit-select-click-1109.mp3"></audio>
     
-    <!-- 外部JavaScript文件 -->
     <script src="script.js"></script>
 </body>
 </html>
