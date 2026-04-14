@@ -1,3 +1,4 @@
+[![更新日志](https://img.shields.io/badge/📝-更新日志-blue)](./CHANGELOG.md)
 # 🌟 如果这个项目对你有帮助，请点个 ⭐ Star 支持一下！  
 # 🌟 If this project helps you, please give it a ⭐ Star!  
 
