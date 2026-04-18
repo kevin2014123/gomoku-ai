@@ -39,10 +39,6 @@ AI难度等级 / AI Difficulty Levels:
 优化 / Optimization: 移动排序 / Move ordering, 只评估有相邻棋子的位置 / Only evaluate positions with adjacent stones
 
 
-## 本地运行 / Local Run
-
-用浏览器打开index.html即可 / Open index.html in browser
-
 ## 版本历史 / Version History
 
 v1.0 基础功能 / Basic features
