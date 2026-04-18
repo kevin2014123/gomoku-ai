@@ -1,4 +1,5 @@
 [![更新日志](https://img.shields.io/badge/📝-更新日志-blue)](./CHANGELOG.md)
+[![下载 APK](https://img.shields.io/badge/下载-APK-brightgreen)](https://github.com/kevin2014123/gomoku-ai/releases/download/gomoku/gomoku.AI_1.0.apk)
 # 🌟 如果这个项目对你有帮助，请点个 ⭐ Star 支持一下！  
 # 🌟 If this project helps you, please give it a ⭐ Star!  
 
@@ -77,3 +78,4 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 [![更新日志](https://img.shields.io/badge/📝-更新日志-blue)](./CHANGELOG.md)
+[![下载 APK](https://img.shields.io/badge/下载-APK-brightgreen)](https://github.com/kevin2014123/gomoku-ai/releases/download/gomoku/gomoku.AI_1.0.apk)
