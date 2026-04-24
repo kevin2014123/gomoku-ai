@@ -1,4 +1,4 @@
-/* style.css */
+/* ========== 原始五子棋 Ultra 炫酷地狱风格 (完整) ========== */
 * {
     margin: 0;
     padding: 0;
@@ -1290,6 +1290,150 @@ h1::after {
 .undo-counter span {
     color: #ffaa33;
     font-weight: bold;
-    font-size: 1rem;
+    font-size: 1
+    .0rem;
     margin-left: 2px;
+}
+
+/* ========== 打赏协议弹窗样式 (追加) ========== */
+.agreement-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.agreement-overlay.show {
+    opacity: 1;
+    pointer-events: all;
+}
+
+.agreement-modal {
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    border-radius: 20px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    padding: 30px;
+    box-shadow: 0 0 30px rgba(255, 69, 0, 0.5);
+    border: 2px solid #ff4500;
+    animation: modalPop 0.4s ease-out;
+}
+
+@keyframes modalPop {
+    0% { transform: scale(0.8); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.agreement-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.8rem;
+    color: #ffcc00;
+    margin-bottom: 20px;
+    border-bottom: 1px solid rgba(255, 69, 0, 0.3);
+    padding-bottom: 15px;
+}
+
+.agreement-header i {
+    font-size: 1.8rem;
+}
+
+.agreement-body {
+    color: #ddd;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    margin-bottom: 20px;
+}
+
+.agreement-notice {
+    color: #ffaa00;
+    margin-bottom: 20px;
+    font-weight: bold;
+    text-align: center;
+    background: rgba(255, 69, 0, 0.1);
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 69, 0, 0.2);
+}
+
+.agreement-section {
+    margin-bottom: 15px;
+    padding-left: 10px;
+}
+
+.agreement-section h4 {
+    color: #ffcc00;
+    margin-bottom: 5px;
+    font-size: 1rem;
+}
+
+.agreement-footer-notice {
+    text-align: center;
+    color: #ff9900;
+    margin-top: 20px;
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 10px;
+    font-weight: bold;
+    border: 1px solid rgba(255, 153, 0, 0.3);
+}
+
+.agreement-buttons {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 25px;
+}
+
+.agreement-btn {
+    flex: 1;
+    padding: 14px 20px;
+    border: none;
+    border-radius: 10px;
+    font-weight: bold;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.agreement-btn.disagree {
+    background: linear-gradient(to bottom, #444, #222);
+    color: #ccc;
+    border: 1px solid #555;
+}
+
+.agreement-btn.disagree:hover {
+    background: linear-gradient(to bottom, #555, #333);
+    color: #fff;
+}
+
+.agreement-btn.agree {
+    background: linear-gradient(to bottom, #ffcc00, #ff9900);
+    color: #1a1a2e;
+    border: 1px solid #ffcc00;
+    box-shadow: 0 0 15px rgba(255, 204, 0, 0.5);
+    animation: buttonPulse 2s infinite;
+}
+
+.agreement-btn.agree:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 25px rgba(255, 204, 0, 0.8);
 }
