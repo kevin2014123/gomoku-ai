@@ -8,9 +8,61 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <button class="support-btn" onclick="window.open('https://raw.githubusercontent.com/kevin2014123/gomoku-ai/main/Reward%20code.png','_blank')">
+    <!-- 打赏按钮（不再直接跳转） -->
+    <button class="support-btn" id="supportBtn">
         <i class="fas fa-wine-bottle"></i> 打赏作者
     </button>
+
+    <!-- 打赏协议弹窗 -->
+    <div class="agreement-overlay" id="agreementOverlay">
+        <div class="agreement-modal">
+            <div class="agreement-header">
+                <i class="fas fa-file-contract"></i>
+                <span>打赏用户协议</span>
+            </div>
+            <div class="agreement-body">
+                <p class="agreement-notice">请仔细阅读本协议。点击“同意”即表示您已完全理解并接受以下全部条款。</p>
+                
+                <div class="agreement-section">
+                    <h4>一、打赏资格</h4>
+                    <p>您确认并保证：<strong>您已年满18周岁</strong>，或您虽未满18周岁但已获得法定监护人明确同意。若您不符合上述条件，请勿进行打赏。</p>
+                </div>
+                
+                <div class="agreement-section">
+                    <h4>二、打赏性质</h4>
+                    <p>打赏是您对项目作者的自愿赠与，不代表购买任何商品或服务。作者不因打赏而承担任何法外义务。</p>
+                </div>
+                
+                <div class="agreement-section">
+                    <h4>三、退款处理</h4>
+                    <p>如打赏行为违反相关法律法规或未经监护人同意，作者承诺<strong>在收到有效退款请求后30日内</strong>全额退还。退款需提供支付凭证及必要身份证明。</p>
+                </div>
+                
+                <div class="agreement-section">
+                    <h4>四、责任限制</h4>
+                    <p>作者仅承担退还已收款项的责任。对任何间接损失（包括但不限于手续费、诉讼费等）不承担责任。</p>
+                </div>
+                
+                <div class="agreement-section">
+                    <h4>五、法律适用</h4>
+                    <p>本协议适用中华人民共和国法律。</p>
+                </div>
+                
+                <div class="agreement-footer-notice">
+                    <i class="fas fa-exclamation-circle"></i>
+                    点击“我同意”即代表您已阅读、理解并接受本协议。
+                </div>
+            </div>
+            <div class="agreement-buttons">
+                <button class="agreement-btn disagree" id="agreementDisagree">
+                    <i class="fas fa-times"></i> 不同意
+                </button>
+                <button class="agreement-btn agree" id="agreementAgree">
+                    <i class="fas fa-check"></i> 我同意
+                </button>
+            </div>
+        </div>
+    </div>
 
     <div class="container">
         <div class="bg-pattern"></div>
@@ -54,7 +106,7 @@
                             <i class="fas fa-robot"></i>
                             <span>AI 对战</span>
                         </button>
-                        <!-- 双人对战按钮：已移除 style="display: none;"，恢复正常显示 -->
+                        <!-- 双人对战按钮可见 -->
                         <button class="mode-btn" id="pvpMode">
                             <i class="fas fa-users"></i>
                             <span>双人对战</span>
@@ -169,8 +221,7 @@
                 </div>
             </div>
             
-            <div class="rank-list" id="rankList">
-            </div>
+            <div class="rank-list" id="rankList"></div>
         </div>
         
         <div class="rules-container">
@@ -191,8 +242,7 @@
             <div class="version-title">
                 <i class="fas fa-history"></i> 版本更新记录
             </div>
-            <div class="version-list" id="versionList">
-            </div>
+            <div class="version-list" id="versionList"></div>
         </div>
     </div>
     
