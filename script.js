@@ -82,8 +82,9 @@ document.addEventListener('DOMContentLoaded', () => {
         { version: "13.0", description: "修复中等/困难模式AI功能缺失问题" },
         { version: "13.1", description: "优化双人对战模式体验" },
         { version: "14.0 Ultra", description: "全面升级，修复了无数个bug，提升了所有难度的 AI" },
-        { version: "15.1", description: "修复AI放弃活四的严重bug，增加双人对战回归" },
-        { version: "16.0", description: "增加打赏用户协议弹窗" }
+        { version: "15.1 Ultra", description: "修复AI放弃活四的严重bug，增加双人对战回归" },
+        { version: "16.0 Ultra", description: "增加打赏用户协议弹窗" },
+        { version: "17.0 Ultra", description: "后续所有更新见仓库./CHANGELOG.md" }
     ];
     
     let undoCount = 0;
