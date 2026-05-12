@@ -40,15 +40,6 @@ AI难度等级 / AI Difficulty Levels:
 优化 / Optimization: 移动排序 / Move ordering, 只评估有相邻棋子的位置 / Only evaluate positions with adjacent stones
 
 
-## 版本历史 / Version History
-
-v1.0 基础功能 / Basic features
-v5.0 增加地狱模式 / Added Hell Mode
-v8.0 添加满血版模型 / Added Full Power model
-v10.0 完整Minimax算法 / Complete Minimax algorithm
-v11.0 段位系统 / Rank system
-v12.5 预判对手功能 / Opponent prediction
-v13.0 修复AI功能缺失问题 / Fixed AI function missing issues
 
 ## 测试数据 / Test Data
 
