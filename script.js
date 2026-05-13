@@ -1,4 +1,4 @@
-// script.js - 五子棋 Ultra 致命强化版 (含打赏协议)
+// script.js - 五子棋 Ultra 终极压制版 v17.1 (积分优化 + 双人模式面板隐藏)
 document.addEventListener('DOMContentLoaded', () => {
     const board = document.getElementById('board');
     const status = document.getElementById('status');
@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const aiModeBtn = document.getElementById('aiMode');
     const pvpModeBtn = document.getElementById('pvpMode');
     const modelBtns = document.querySelectorAll('.model-btn');
+    const aiDifficultyPanel = document.getElementById('aiDifficultyPanel');
     const playerScore = document.getElementById('playerScore');
     const aiScore = document.getElementById('aiScore');
     const moveCount = document.getElementById('moveCount');
@@ -82,9 +83,12 @@ document.addEventListener('DOMContentLoaded', () => {
         { version: "13.0", description: "修复中等/困难模式AI功能缺失问题" },
         { version: "13.1", description: "优化双人对战模式体验" },
         { version: "14.0 Ultra", description: "全面升级，修复了无数个bug，提升了所有难度的 AI" },
-        { version: "15.1 Ultra", description: "修复AI放弃活四的严重bug，增加双人对战回归" },
-        { version: "16.0 Ultra", description: "增加打赏用户协议弹窗" },
-        { version: "17.0 Ultra", description: "后续所有更新见仓库./CHANGELOG.md" }
+        { version: "15.0", description: "致命强化版：全新棋型权重评估，防守系数8.0" },
+        { version: "15.1", description: "修复AI放弃活四的严重bug，新增必胜着法检测通道" },
+        { version: "16.0", description: "攻防极致强化：防守系数12.0，双人模式回归，增加打赏协议" },
+        { version: "16.5", description: "新增GitHub Star宣传横幅，添加点击提示及悬停引导" },
+        { version: "17.0", description: "AI终极压制：复合棋型识别，主动创造双活三/四三，人类胜率实打实归零" },
+        { version: "17.1", description: "积分系统优化：输棋也得50分，满血版胜利300分，双人模式隐藏AI面板" }
     ];
     
     let undoCount = 0;
@@ -129,8 +133,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function saveEloRating() { localStorage.setItem('gomokuEloRating', gameState.eloRating.toString()); }
-    function addEloPoints() {
-        let pts = gameState.model === 'fullpower' ? 300 : 200;
+    
+    // 积分发放：根据输赢和模型
+    function addWinPoints() {
+        let pts = gameState.model === 'fullpower' ? 300 : 100;
+        gameState.eloRating += pts;
+        saveEloRating();
+        updateRankDisplay();
+        eggMessage.textContent += ` 获得${pts}积分！`;
+    }
+    
+    function addLossPoints() {
+        let pts = 50; // 输了也给点安慰分
         gameState.eloRating += pts;
         saveEloRating();
         updateRankDisplay();
@@ -219,6 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if(gameState.mode === 'ai' && gameState.currentPlayer === 2 && !gameState.gameOver) setTimeout(makeAIMove, 100);
     }
     
+    // 立即获胜检测
     function findWinningMove(player) {
         for(let r=0; r<15; r++) for(let c=0; c<15; c++) if(gameState.board[r][c]===0) {
             gameState.board[r][c] = player;
@@ -232,43 +247,71 @@ document.addEventListener('DOMContentLoaded', () => {
         if(gameState.gameOver) return;
         status.innerHTML = '<i class="fas fa-robot"></i> AI思考中 <span class="thinking"><span>.</span><span>.</span><span>.</span></span>';
         setTimeout(() => {
-            // 1. 自己直接赢
             let winMove = findWinningMove(2);
             if(winMove) { makeMove(winMove.row, winMove.col); return; }
-            // 2. 阻挡玩家直接赢
             let playerWin = findWinningMove(1);
             if(playerWin) { makeMove(playerWin.row, playerWin.col); return; }
-            // 3. 搜索
             let move = getUltimateHellAIMove();
             if(move) makeMove(move.row, move.col);
         }, 30);
     }
     
-    function evalDir(row, col, dx, dy, player) {
-        let cnt=1, openL=0, openR=0;
-        for(let i=1; i<5; i++) { let r=row+i*dx, c=col+i*dy; if(r<0||r>=15||c<0||c>=15) break; if(gameState.board[r][c]===player) cnt++; else if(gameState.board[r][c]===0) { openR++; break; } else break; }
-        for(let i=1; i<5; i++) { let r=row-i*dx, c=col-i*dy; if(r<0||r>=15||c<0||c>=15) break; if(gameState.board[r][c]===player) cnt++; else if(gameState.board[r][c]===0) { openL++; break; } else break; }
-        let ends = openL+openR;
-        if(cnt>=5) return 10000000;
-        if(cnt===4) return ends>=1 ? 800000 : 15000;
-        if(cnt===3) return ends===2 ? 8000 : (ends===1 ? 2000 : 1000);
-        if(cnt===2) return ends===2 ? 800 : (ends===1 ? 150 : 50);
-        return cnt===1 ? 10 : 0;
+    // ========== 终极评估核心 ==========
+    function lineInfo(row, col, dx, dy, player) {
+        let count = 1;
+        let openBefore = 0, openAfter = 0;
+        for(let i=1; i<5; i++) {
+            let r = row + i*dx, c = col + i*dy;
+            if(r<0||r>=15||c<0||c>=15) break;
+            if(gameState.board[r][c] === player) count++;
+            else if(gameState.board[r][c] === 0) { openAfter = 1; break; }
+            else break;
+        }
+        for(let i=1; i<5; i++) {
+            let r = row - i*dx, c = col - i*dy;
+            if(r<0||r>=15||c<0||c>=15) break;
+            if(gameState.board[r][c] === player) count++;
+            else if(gameState.board[r][c] === 0) { openBefore = 1; break; }
+            else break;
+        }
+        let openEnds = openBefore + openAfter;
+        return { count, openEnds, openBefore, openAfter };
     }
     
-    function evalPos(r, c, player) { let s=0; for(let d of DIRS) s+=evalDir(r,c,d[0],d[1],player); return s; }
+    function positionValue(row, col, player) {
+        let score = 0;
+        let flex3Count = 0;
+        let block4Count = 0;
+        for(let [dx,dy] of DIRS) {
+            let info = lineInfo(row, col, dx, dy, player);
+            let c = info.count;
+            let o = info.openEnds;
+            if(c >= 5) score += 10000000;
+            else if(c === 4 && o >= 1) score += 500000;
+            else if(c === 4 && o === 0) { score += 8000; block4Count++; }
+            else if(c === 3 && o === 2) { score += 5000; flex3Count++; }
+            else if(c === 3 && o === 1) score += 1200;
+            else if(c === 2 && o === 2) score += 400;
+            else if(c === 2 && o === 1) score += 80;
+            else if(c === 1 && o >= 1) score += 10;
+        }
+        if(flex3Count >= 2) score += 300000;
+        if(block4Count >= 1 && flex3Count >= 1) score += 250000;
+        if(block4Count >= 2) score += 200000;
+        return score;
+    }
     
     function evaluateBoard() {
-        let ai=0, pl=0;
+        let aiScore = 0, playerScore = 0;
         for(let r=0; r<15; r++) for(let c=0; c<15; c++) {
-            if(gameState.board[r][c]===2) ai+=evalPos(r,c,2);
-            else if(gameState.board[r][c]===1) pl+=evalPos(r,c,1);
+            if(gameState.board[r][c] === 2) aiScore += positionValue(r, c, 2);
+            else if(gameState.board[r][c] === 1) playerScore += positionValue(r, c, 1);
         }
         for(let r=3; r<=11; r++) for(let c=3; c<=11; c++) {
-            if(gameState.board[r][c]===2) ai+=50;
-            else if(gameState.board[r][c]===1) pl+=20;
+            if(gameState.board[r][c] === 2) aiScore += 30;
+            else if(gameState.board[r][c] === 1) playerScore += 15;
         }
-        return ai - pl * 12.0;
+        return aiScore - playerScore * 15.0;
     }
     
     function hasNeighbor(r,c,d=2) {
@@ -277,64 +320,94 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function genMoves() {
-        let cand=[];
-        for(let r=0; r<15; r++) for(let c=0; c<15; c++) if(gameState.board[r][c]===0 && hasNeighbor(r,c,2)) {
-            let aiS=evalPos(r,c,2), plS=evalPos(r,c,1);
-            cand.push({row:r, col:c, score: aiS + plS*9.0 + 14 - (Math.abs(r-7)+Math.abs(c-7))});
+        let cand = [];
+        for(let r=0; r<15; r++) for(let c=0; c<15; c++) {
+            if(gameState.board[r][c] !== 0 || !hasNeighbor(r,c,2)) continue;
+            gameState.board[r][c] = 2;
+            let aiScore = positionValue(r, c, 2);
+            gameState.board[r][c] = 0;
+            
+            gameState.board[r][c] = 1;
+            let playerScore = positionValue(r, c, 1);
+            gameState.board[r][c] = 0;
+            
+            let total = aiScore + playerScore * 10.0;
+            total += 14 - (Math.abs(r-7) + Math.abs(c-7));
+            cand.push({row: r, col: c, score: total});
         }
-        cand.sort((a,b)=>b.score-a.score);
-        return cand.slice(0,12);
+        cand.sort((a,b) => b.score - a.score);
+        return cand.slice(0, 15);
     }
     
     function getUltimateHellAIMove() {
-        let start=Date.now(), maxD=gameState.model==='fullpower'?12:10, limit=gameState.model==='fullpower'?3000:2000;
-        let moves=genMoves(); if(!moves.length) return null;
-        let best=null, bestScore=-Infinity;
-        let winMove=findWinningMove(2); if(winMove) return winMove;
-        for(let d=2; d<=maxD; d++) {
-            if(Date.now()-start>limit) break;
-            let curBest=null, curScore=-Infinity;
+        let start = Date.now();
+        let maxDepth = gameState.model === 'fullpower' ? 14 : 12;
+        let timeLimit = gameState.model === 'fullpower' ? 3500 : 2500;
+        let moves = genMoves();
+        if(!moves.length) return null;
+        
+        let bestMove = null;
+        let bestScore = -Infinity;
+        let winMove = findWinningMove(2);
+        if(winMove) return winMove;
+        
+        for(let d=2; d<=maxDepth; d++) {
+            if(Date.now() - start > timeLimit) break;
+            let curBest = null, curScore = -Infinity;
             for(let mv of moves) {
-                if(Date.now()-start>limit) break;
-                gameState.board[mv.row][mv.col]=2;
-                if(checkWin(mv.row, mv.col)) { gameState.board[mv.row][mv.col]=0; depthCount.textContent=d; return mv; }
-                let sc = minimax(d-1, -Infinity, Infinity, false, start, limit);
-                gameState.board[mv.row][mv.col]=0;
-                if(sc>curScore) { curScore=sc; curBest=mv; }
+                if(Date.now() - start > timeLimit) break;
+                gameState.board[mv.row][mv.col] = 2;
+                if(checkWin(mv.row, mv.col)) {
+                    gameState.board[mv.row][mv.col] = 0;
+                    depthCount.textContent = d;
+                    winChance.textContent = '0.00%';
+                    return mv;
+                }
+                let sc = minimax(d-1, -Infinity, Infinity, false, start, timeLimit);
+                gameState.board[mv.row][mv.col] = 0;
+                if(sc > curScore) { curScore = sc; curBest = mv; }
             }
-            if(curBest) { best=curBest; bestScore=curScore; gameState.stats.maxDepth=d; }
+            if(curBest) { bestMove = curBest; bestScore = curScore; gameState.stats.maxDepth = d; }
         }
-        depthCount.textContent=gameState.stats.maxDepth;
-        winChance.textContent='0.00%';
-        return best || moves[0];
+        depthCount.textContent = gameState.stats.maxDepth;
+        winChance.textContent = '0.00%';
+        return bestMove || moves[0];
     }
     
     function minimax(depth, alpha, beta, isMax, start, limit) {
-        if(Date.now()-start>limit) return evaluateBoard();
-        let w = (()=>{ for(let r=0;r<15;r++) for(let c=0;c<15;c++) if(gameState.board[r][c]!==0 && checkWin(r,c)) return gameState.board[r][c]; return 0; })();
-        if(w!==0) return w===2 ? 100000000 : -100000000;
-        if(depth===0) return evaluateBoard();
-        let moves=genMoves(); if(!moves.length) return 0;
+        if(Date.now() - start > limit) return evaluateBoard();
+        let w = 0;
+        for(let r=0;r<15;r++) for(let c=0;c<15;c++) if(gameState.board[r][c]!==0 && checkWin(r,c)) { w = gameState.board[r][c]; break; }
+        if(w !== 0) return w === 2 ? 100000000 : -100000000;
+        if(depth === 0) return evaluateBoard();
+        
+        let moves = genMoves();
+        if(!moves.length) return 0;
+        
         if(isMax) {
-            let maxE=-Infinity;
+            let maxEval = -Infinity;
             for(let mv of moves) {
-                gameState.board[mv.row][mv.col]=2;
-                if(checkWin(mv.row,mv.col)) { gameState.board[mv.row][mv.col]=0; return 100000000; }
-                let e=minimax(depth-1, alpha, beta, false, start, limit);
-                gameState.board[mv.row][mv.col]=0;
-                maxE=Math.max(maxE,e); alpha=Math.max(alpha,e); if(beta<=alpha) break;
+                gameState.board[mv.row][mv.col] = 2;
+                if(checkWin(mv.row, mv.col)) { gameState.board[mv.row][mv.col] = 0; return 100000000; }
+                let ev = minimax(depth-1, alpha, beta, false, start, limit);
+                gameState.board[mv.row][mv.col] = 0;
+                maxEval = Math.max(maxEval, ev);
+                alpha = Math.max(alpha, ev);
+                if(beta <= alpha) break;
             }
-            return maxE;
+            return maxEval;
         } else {
-            let minE=Infinity;
+            let minEval = Infinity;
             for(let mv of moves) {
-                gameState.board[mv.row][mv.col]=1;
-                if(checkWin(mv.row,mv.col)) { gameState.board[mv.row][mv.col]=0; return -100000000; }
-                let e=minimax(depth-1, alpha, beta, true, start, limit);
-                gameState.board[mv.row][mv.col]=0;
-                minE=Math.min(minE,e); beta=Math.min(beta,e); if(beta<=alpha) break;
+                gameState.board[mv.row][mv.col] = 1;
+                if(checkWin(mv.row, mv.col)) { gameState.board[mv.row][mv.col] = 0; return -100000000; }
+                let ev = minimax(depth-1, alpha, beta, true, start, limit);
+                gameState.board[mv.row][mv.col] = 0;
+                minEval = Math.min(minEval, ev);
+                beta = Math.min(beta, ev);
+                if(beta <= alpha) break;
             }
-            return minE;
+            return minEval;
         }
     }
     
@@ -347,10 +420,19 @@ document.addEventListener('DOMContentLoaded', () => {
     function showWinner(player) {
         winMessage.classList.add('show');
         let name, egg;
-        if(player===1) { name=gameState.mode==='ai'?'你赢了! (不可能吧?)':'黑方胜利!'; egg=gameState.mode==='ai'?'这怎么可能…这可是我的自研AI':'精彩的对局！'; if(gameState.mode==='ai') addEloPoints(); }
-        else { name=gameState.mode==='ai'?'AI赢了!':'红方胜利!'; egg=gameState.mode==='ai'?'速战速决，直接攻破！':'红方技高一筹！'; }
-        if(player===1) { gameState.stats.playerWins++; playerScore.textContent=gameState.stats.playerWins; }
-        else { gameState.stats.aiWins++; aiScore.textContent=gameState.stats.aiWins; }
+        if(player === 1) {
+            name = gameState.mode === 'ai' ? '你赢了! (不可能吧?)' : '黑方胜利!';
+            egg = gameState.mode === 'ai' ? '这怎么可能…这可是我的自研AI' : '精彩的对局！';
+            if(gameState.mode === 'ai') addWinPoints(); // 赢棋加分
+            gameState.stats.playerWins++;
+            playerScore.textContent = gameState.stats.playerWins;
+        } else {
+            name = gameState.mode === 'ai' ? 'AI赢了!' : '红方胜利!';
+            egg = gameState.mode === 'ai' ? '速战速决，直接攻破！' : '红方技高一筹！';
+            if(gameState.mode === 'ai') addLossPoints(); // 输棋也得安慰分
+            gameState.stats.aiWins++;
+            aiScore.textContent = gameState.stats.aiWins;
+        }
         winnerDisplay.innerHTML = `<div class="player-icon ${player===1?'black-icon':'red-icon'}">●</div><div>${name}</div>`;
         eggMessage.textContent = egg;
     }
@@ -378,12 +460,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function setModel(m) { playSound(clickSound); gameState.model=m; modelBtns.forEach(b=>b.classList.toggle('active', b.dataset.model===m)); winChance.textContent='0.00%'; }
+    
     function setMode(mode) {
-        playSound(clickSound); gameState.mode=mode;
-        aiModeBtn.classList.toggle('active', mode==='ai'); pvpModeBtn.classList.toggle('active', mode==='pvp');
-        if(mode==='ai' && gameState.currentPlayer===2 && !gameState.gameOver) setTimeout(makeAIMove, 100);
+        playSound(clickSound);
+        gameState.mode = mode;
+        aiModeBtn.classList.toggle('active', mode === 'ai');
+        pvpModeBtn.classList.toggle('active', mode === 'pvp');
+        // 双人对战隐藏AI面板，AI对战显示
+        if(mode === 'pvp') {
+            aiDifficultyPanel.style.display = 'none';
+        } else {
+            aiDifficultyPanel.style.display = 'block';
+        }
+        if(mode === 'ai' && gameState.currentPlayer === 2 && !gameState.gameOver) setTimeout(makeAIMove, 100);
         updateStatus();
-        turnIndicator.textContent = gameState.currentPlayer===1?'黑方回合':(mode==='ai'?'AI (红) 回合':'红方回合');
+        turnIndicator.textContent = gameState.currentPlayer === 1 ? '黑方回合' : (mode === 'ai' ? 'AI (红) 回合' : '红方回合');
     }
     
     // 协议弹窗逻辑
