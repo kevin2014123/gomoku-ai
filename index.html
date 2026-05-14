@@ -35,7 +35,7 @@
                 
                 <div class="agreement-section">
                     <h4>三、退款处理</h4>
-                    <p>如打赏行为违反相关法律法规或未经监护人同意，作者承诺<strong>在收到有效退款请求后30日内</strong>全额退还。（作者邮箱:kevin20141211_2024@qq.com)退款需提供支付凭证及必要身份证明。</p>
+                    <p>如打赏行为违反相关法律法规或未经监护人同意，作者承诺<strong>在收到有效退款请求后30日内</strong>全额退还。退款需提供支付凭证及必要身份证明。</p>
                 </div>
                 
                 <div class="agreement-section">
@@ -104,6 +104,10 @@
                 <div class="player-turn-indicator" id="turnIndicator">黑方回合</div>
                 <div class="undo-counter" id="undoCounterDisplay">
                     <i class="fas fa-undo-alt"></i> 悔棋次数: <span id="undoCountValue">0</span>
+                </div>
+                <!-- AI 正在思考横幅（默认隐藏） -->
+                <div id="aiThinkingBanner" class="ai-thinking-banner" style="display: none;">
+                    <i class="fas fa-robot"></i> AI 正在思考 <span class="thinking"><span>.</span><span>.</span><span>.</span></span>
                 </div>
                 <div class="board" id="board"></div>
             </div>
