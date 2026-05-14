@@ -1,4 +1,4 @@
-// script.js - 五子棋 Ultra 终极压制版 v17.1 (积分优化 + 双人模式面板隐藏)
+// script.js - 五子棋 Ultra 终极压制版 v17.1 (紧凑布局、AI思考横幅)
 document.addEventListener('DOMContentLoaded', () => {
     const board = document.getElementById('board');
     const status = document.getElementById('status');
@@ -33,6 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const rankProgressText = document.getElementById('rankProgressText');
     const rankList = document.getElementById('rankList');
     const undoCountSpan = document.getElementById('undoCountValue');
+    const aiThinkingBanner = document.getElementById('aiThinkingBanner');
     
     // 协议弹窗元素
     const supportBtn = document.getElementById('supportBtn');
@@ -88,7 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
         { version: "16.0", description: "攻防极致强化：防守系数12.0，双人模式回归，增加打赏协议" },
         { version: "16.5", description: "新增GitHub Star宣传横幅，添加点击提示及悬停引导" },
         { version: "17.0", description: "AI终极压制：复合棋型识别，主动创造双活三/四三，人类胜率实打实归零" },
-        { version: "17.1", description: "积分系统优化：输棋也得50分，满血版胜利300分，双人模式隐藏AI面板" }
+        { version: "17.1", description: "积分优化+面板隐藏+紧凑布局+AI思考横幅" }
     ];
     
     let undoCount = 0;
@@ -107,6 +108,8 @@ document.addEventListener('DOMContentLoaded', () => {
         aiModeBtn.classList.add('active');
         pvpModeBtn.classList.remove('active');
         resetUndoCount();
+        // 隐藏AI思考横幅
+        if (aiThinkingBanner) aiThinkingBanner.style.display = 'none';
     }
     
     function initRankSystem() {
@@ -134,7 +137,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function saveEloRating() { localStorage.setItem('gomokuEloRating', gameState.eloRating.toString()); }
     
-    // 积分发放：根据输赢和模型
     function addWinPoints() {
         let pts = gameState.model === 'fullpower' ? 300 : 100;
         gameState.eloRating += pts;
@@ -144,7 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function addLossPoints() {
-        let pts = 50; // 输了也给点安慰分
+        let pts = 50;
         gameState.eloRating += pts;
         saveEloRating();
         updateRankDisplay();
@@ -233,7 +235,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if(gameState.mode === 'ai' && gameState.currentPlayer === 2 && !gameState.gameOver) setTimeout(makeAIMove, 100);
     }
     
-    // 立即获胜检测
     function findWinningMove(player) {
         for(let r=0; r<15; r++) for(let c=0; c<15; c++) if(gameState.board[r][c]===0) {
             gameState.board[r][c] = player;
@@ -245,6 +246,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function makeAIMove() {
         if(gameState.gameOver) return;
+        // 显示AI思考横幅
+        if (aiThinkingBanner) aiThinkingBanner.style.display = 'flex';
         status.innerHTML = '<i class="fas fa-robot"></i> AI思考中 <span class="thinking"><span>.</span><span>.</span><span>.</span></span>';
         setTimeout(() => {
             let winMove = findWinningMove(2);
@@ -253,10 +256,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if(playerWin) { makeMove(playerWin.row, playerWin.col); return; }
             let move = getUltimateHellAIMove();
             if(move) makeMove(move.row, move.col);
+            // 隐藏AI思考横幅（在下一次状态更新时也会隐藏，保险起见调用）
+            if (aiThinkingBanner) aiThinkingBanner.style.display = 'none';
         }, 30);
     }
     
-    // ========== 终极评估核心 ==========
     function lineInfo(row, col, dx, dy, player) {
         let count = 1;
         let openBefore = 0, openAfter = 0;
@@ -412,9 +416,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function updateStatus() {
-        if(gameState.gameOver) return;
-        if(gameState.mode==='ai') status.innerHTML = gameState.currentPlayer===1 ? '<i class="fas fa-chess"></i> 你的回合 (黑棋)' : '<i class="fas fa-robot"></i> AI思考中...';
-        else status.innerHTML = `<i class="fas fa-user"></i> ${gameState.currentPlayer===1?'黑方':'红方'}回合`;
+        if(gameState.gameOver) {
+            if (aiThinkingBanner) aiThinkingBanner.style.display = 'none';
+            return;
+        }
+        if(gameState.mode==='ai') {
+            if(gameState.currentPlayer === 1) {
+                status.innerHTML = '<i class="fas fa-chess"></i> 你的回合 (黑棋)';
+                if (aiThinkingBanner) aiThinkingBanner.style.display = 'none';
+            } else {
+                status.innerHTML = '<i class="fas fa-robot"></i> AI思考中...';
+                // AI思考横幅由makeAIMove控制显示
+            }
+        } else {
+            status.innerHTML = `<i class="fas fa-user"></i> ${gameState.currentPlayer===1?'黑方':'红方'}回合`;
+            if (aiThinkingBanner) aiThinkingBanner.style.display = 'none';
+        }
     }
     
     function showWinner(player) {
@@ -423,18 +440,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if(player === 1) {
             name = gameState.mode === 'ai' ? '你赢了! (不可能吧?)' : '黑方胜利!';
             egg = gameState.mode === 'ai' ? '这怎么可能…这可是我的自研AI' : '精彩的对局！';
-            if(gameState.mode === 'ai') addWinPoints(); // 赢棋加分
+            if(gameState.mode === 'ai') addWinPoints();
             gameState.stats.playerWins++;
             playerScore.textContent = gameState.stats.playerWins;
         } else {
             name = gameState.mode === 'ai' ? 'AI赢了!' : '红方胜利!';
             egg = gameState.mode === 'ai' ? '速战速决，直接攻破！' : '红方技高一筹！';
-            if(gameState.mode === 'ai') addLossPoints(); // 输棋也得安慰分
+            if(gameState.mode === 'ai') addLossPoints();
             gameState.stats.aiWins++;
             aiScore.textContent = gameState.stats.aiWins;
         }
         winnerDisplay.innerHTML = `<div class="player-icon ${player===1?'black-icon':'red-icon'}">●</div><div>${name}</div>`;
         eggMessage.textContent = egg;
+        if (aiThinkingBanner) aiThinkingBanner.style.display = 'none';
     }
     
     function restartGame() {
@@ -444,6 +462,7 @@ document.addEventListener('DOMContentLoaded', () => {
         playerBlack.classList.add('active'); playerRed.classList.remove('active');
         turnIndicator.textContent='黑方回合'; turnIndicator.style.backgroundColor='#333';
         winMessage.classList.remove('show'); drawStones(); updateStatus(); resetUndoCount();
+        if (aiThinkingBanner) aiThinkingBanner.style.display = 'none';
     }
     
     function undoMove() {
@@ -466,7 +485,6 @@ document.addEventListener('DOMContentLoaded', () => {
         gameState.mode = mode;
         aiModeBtn.classList.toggle('active', mode === 'ai');
         pvpModeBtn.classList.toggle('active', mode === 'pvp');
-        // 双人对战隐藏AI面板，AI对战显示
         if(mode === 'pvp') {
             aiDifficultyPanel.style.display = 'none';
         } else {
