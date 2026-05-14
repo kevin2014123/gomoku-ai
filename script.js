@@ -1,4 +1,4 @@
-// script.js - 五子棋 Ultra 终极压制版 v17.1 (紧凑布局、AI思考横幅)
+// script.js - 五子棋 Ultra 终极压制版 v17.1 (横幅显示修复)
 document.addEventListener('DOMContentLoaded', () => {
     const board = document.getElementById('board');
     const status = document.getElementById('status');
@@ -97,6 +97,14 @@ document.addEventListener('DOMContentLoaded', () => {
     function resetUndoCount() { undoCount = 0; updateUndoDisplay(); }
     function incrementUndoCount() { undoCount++; updateUndoDisplay(); }
     
+    // 统一控制横幅显示/隐藏
+    function showThinkingBanner() {
+        if (aiThinkingBanner) aiThinkingBanner.style.display = 'flex';
+    }
+    function hideThinkingBanner() {
+        if (aiThinkingBanner) aiThinkingBanner.style.display = 'none';
+    }
+    
     function initGame() {
         const savedElo = localStorage.getItem('gomokuEloRating');
         if(savedElo) gameState.eloRating = parseInt(savedElo);
@@ -108,8 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
         aiModeBtn.classList.add('active');
         pvpModeBtn.classList.remove('active');
         resetUndoCount();
-        // 隐藏AI思考横幅
-        if (aiThinkingBanner) aiThinkingBanner.style.display = 'none';
+        hideThinkingBanner();
     }
     
     function initRankSystem() {
@@ -232,7 +239,13 @@ document.addEventListener('DOMContentLoaded', () => {
         playerRed.classList.toggle('active', gameState.currentPlayer === 2);
         turnIndicator.textContent = gameState.currentPlayer === 1 ? '黑方回合' : (gameState.mode === 'ai' ? 'AI (红) 回合' : '红方回合');
         turnIndicator.style.backgroundColor = gameState.currentPlayer === 1 ? '#333' : '#cc0000';
-        if(gameState.mode === 'ai' && gameState.currentPlayer === 2 && !gameState.gameOver) setTimeout(makeAIMove, 100);
+        // AI回合立即显示横幅
+        if(gameState.mode === 'ai' && gameState.currentPlayer === 2 && !gameState.gameOver) {
+            showThinkingBanner();
+            setTimeout(makeAIMove, 100);
+        } else {
+            hideThinkingBanner();
+        }
     }
     
     function findWinningMove(player) {
@@ -245,9 +258,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function makeAIMove() {
-        if(gameState.gameOver) return;
-        // 显示AI思考横幅
-        if (aiThinkingBanner) aiThinkingBanner.style.display = 'flex';
+        if(gameState.gameOver) {
+            hideThinkingBanner();
+            return;
+        }
         status.innerHTML = '<i class="fas fa-robot"></i> AI思考中 <span class="thinking"><span>.</span><span>.</span><span>.</span></span>';
         setTimeout(() => {
             let winMove = findWinningMove(2);
@@ -256,11 +270,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if(playerWin) { makeMove(playerWin.row, playerWin.col); return; }
             let move = getUltimateHellAIMove();
             if(move) makeMove(move.row, move.col);
-            // 隐藏AI思考横幅（在下一次状态更新时也会隐藏，保险起见调用）
-            if (aiThinkingBanner) aiThinkingBanner.style.display = 'none';
+            // makeMove 内部会根据回合隐藏横幅，所以这里不需要额外操作
         }, 30);
     }
     
+    // 评估函数等保持不变（省略以节省篇幅，实际上需要保留之前完整的评估、搜索代码）
+    // 由于字数限制，此处不再重复全部评估和搜索函数，请确保使用 v17.1 原有完整代码填充以下部分
+    // ========== 以下是 v17.1 原有完整评估与搜索代码（无修改） ==========
     function lineInfo(row, col, dx, dy, player) {
         let count = 1;
         let openBefore = 0, openAfter = 0;
@@ -417,20 +433,20 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function updateStatus() {
         if(gameState.gameOver) {
-            if (aiThinkingBanner) aiThinkingBanner.style.display = 'none';
+            hideThinkingBanner();
             return;
         }
         if(gameState.mode==='ai') {
             if(gameState.currentPlayer === 1) {
                 status.innerHTML = '<i class="fas fa-chess"></i> 你的回合 (黑棋)';
-                if (aiThinkingBanner) aiThinkingBanner.style.display = 'none';
+                hideThinkingBanner();
             } else {
                 status.innerHTML = '<i class="fas fa-robot"></i> AI思考中...';
-                // AI思考横幅由makeAIMove控制显示
+                // 横幅由 makeMove 控制
             }
         } else {
             status.innerHTML = `<i class="fas fa-user"></i> ${gameState.currentPlayer===1?'黑方':'红方'}回合`;
-            if (aiThinkingBanner) aiThinkingBanner.style.display = 'none';
+            hideThinkingBanner();
         }
     }
     
@@ -452,7 +468,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         winnerDisplay.innerHTML = `<div class="player-icon ${player===1?'black-icon':'red-icon'}">●</div><div>${name}</div>`;
         eggMessage.textContent = egg;
-        if (aiThinkingBanner) aiThinkingBanner.style.display = 'none';
+        hideThinkingBanner();
     }
     
     function restartGame() {
@@ -462,7 +478,7 @@ document.addEventListener('DOMContentLoaded', () => {
         playerBlack.classList.add('active'); playerRed.classList.remove('active');
         turnIndicator.textContent='黑方回合'; turnIndicator.style.backgroundColor='#333';
         winMessage.classList.remove('show'); drawStones(); updateStatus(); resetUndoCount();
-        if (aiThinkingBanner) aiThinkingBanner.style.display = 'none';
+        hideThinkingBanner();
     }
     
     function undoMove() {
@@ -487,10 +503,14 @@ document.addEventListener('DOMContentLoaded', () => {
         pvpModeBtn.classList.toggle('active', mode === 'pvp');
         if(mode === 'pvp') {
             aiDifficultyPanel.style.display = 'none';
+            hideThinkingBanner();
         } else {
             aiDifficultyPanel.style.display = 'block';
         }
-        if(mode === 'ai' && gameState.currentPlayer === 2 && !gameState.gameOver) setTimeout(makeAIMove, 100);
+        if(mode === 'ai' && gameState.currentPlayer === 2 && !gameState.gameOver) {
+            showThinkingBanner();
+            setTimeout(makeAIMove, 100);
+        }
         updateStatus();
         turnIndicator.textContent = gameState.currentPlayer === 1 ? '黑方回合' : (mode === 'ai' ? 'AI (红) 回合' : '红方回合');
     }
