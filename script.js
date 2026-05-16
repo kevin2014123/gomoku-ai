@@ -1,4 +1,6 @@
-// script.js - 五子棋 Ultra V18.1 · 时间切片极致性能版
+// =====================================================
+// 五子棋 Ultra V18.2 · 反卡死终极修复版
+// =====================================================
 document.addEventListener('DOMContentLoaded', () => {
     // ---------- DOM 元素 ----------
     const board = document.getElementById('board');
@@ -91,7 +93,8 @@ document.addEventListener('DOMContentLoaded', () => {
         { version: "17.1", description: "积分系统优化：输棋也得50分，满血版胜利300分，双人模式隐藏AI面板" },
         { version: "17.2", description: "修复快速连点漏洞：AI思考期间锁定棋盘，防止玩家连下多步" },
         { version: "18.0 Ultra", description: "极致攻防一体化：防守系数18.0，复合棋型权重翻倍，双评估通道，深度提升至16层" },
-        { version: "18.1 Ultra", description: "修复Worker方案性能倒退，改用主线程requestAnimationFrame时间切片，帧率恢复55+" }
+        { version: "18.1 Ultra", description: "移除Worker方案，回归主线程+requestAnimationFrame时间切片，帧率恢复55+" },
+        { version: "18.2 Ultra", description: "修复AI卡死与深层卡顿，增加随机兜底与紧急制动机制" }
     ];
 
     let gameState = {
@@ -199,7 +202,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 cell.className = 'cell';
                 cell.dataset.row = r;
                 cell.dataset.col = c;
-                // 仅使用 click，避免 pointerdown 带来的双击问题
                 cell.addEventListener('click', () => makeMove(r, c));
                 board.appendChild(cell);
                 if (pts.some(p => p.r === r && p.c === c)) {
@@ -213,7 +215,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // ---------- 棋子渲染 (简单高效) ----------
+    // ---------- 棋子渲染 ----------
     function drawStones() {
         const oldStones = board.querySelectorAll('.stone');
         for (let i = 0; i < oldStones.length; i++) oldStones[i].remove();
@@ -286,7 +288,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (gameState.mode === 'ai' && gameState.currentPlayer === AI && !gameState.gameOver) {
             isAIThinking = true;
             updateGameStatus('ai');
-            // 使用 requestAnimationFrame 确保渲染完成后再计算
+            // 使用 requestAnimationFrame 确保 UI 更新后再计算
             requestAnimationFrame(() => {
                 aiTimeoutHandle = setTimeout(makeAIMove, 10);
             });
@@ -296,7 +298,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // ===================== AI 算法 (主线程) =====================
+    // ===================== AI 算法 (主线程，极致时间检查) =====================
     function findWinningMove(player) {
         for (let r = 0; r < BOARD_SIZE; r++) {
             for (let c = 0; c < BOARD_SIZE; c++) {
@@ -410,7 +412,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function getUltimateAIMove() {
-        const start = Date.now();
+        const start = performance.now();
         const maxDepth = gameState.model === 'fullpower' ? 16 : 14;
         const timeLimit = gameState.model === 'fullpower' ? 4500 : 3000;
         const moves = genMoves();
@@ -421,10 +423,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (winMove) return winMove;
 
         for (let d = 2; d <= maxDepth; d++) {
-            if (Date.now() - start > timeLimit) break;
+            if (performance.now() - start > timeLimit) break;
             let curBest = null, curScore = -Infinity;
             for (let i = 0; i < moves.length; i++) {
-                if (Date.now() - start > timeLimit) break;
+                if (performance.now() - start > timeLimit) break;
                 const mv = moves[i];
                 gameState.board[mv.row][mv.col] = AI;
                 if (checkWin(mv.row, mv.col)) {
@@ -441,11 +443,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         depthCount.textContent = gameState.stats.maxDepth;
         winChance.textContent = '0.00%';
-        return bestMove || moves[0];
+        return bestMove || moves[0]; // 保证至少返回一个着法
     }
 
     function minimax(depth, alpha, beta, isMax, start, limit) {
-        if (Date.now() - start > limit) return evaluateBoard();
+        if (performance.now() - start > limit) return evaluateBoard();
+        // 检查终局
         for (let r = 0; r < BOARD_SIZE; r++) {
             for (let c = 0; c < BOARD_SIZE; c++) {
                 if (gameState.board[r][c] !== EMPTY && checkWin(r, c)) {
@@ -456,9 +459,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (depth === 0) return evaluateBoard();
         const moves = genMoves();
         if (!moves.length) return 0;
+
         if (isMax) {
             let maxEval = -Infinity;
             for (let i = 0; i < moves.length; i++) {
+                if (performance.now() - start > limit) return maxEval === -Infinity ? evaluateBoard() : maxEval;
                 const mv = moves[i];
                 gameState.board[mv.row][mv.col] = AI;
                 if (checkWin(mv.row, mv.col)) { gameState.board[mv.row][mv.col] = EMPTY; return 100000000; }
@@ -472,6 +477,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             let minEval = Infinity;
             for (let i = 0; i < moves.length; i++) {
+                if (performance.now() - start > limit) return minEval === Infinity ? evaluateBoard() : minEval;
                 const mv = moves[i];
                 gameState.board[mv.row][mv.col] = PLAYER;
                 if (checkWin(mv.row, mv.col)) { gameState.board[mv.row][mv.col] = EMPTY; return -100000000; }
@@ -497,7 +503,21 @@ document.addEventListener('DOMContentLoaded', () => {
             const playerWin = findWinningMove(PLAYER);
             if (playerWin) { makeMove(playerWin.row, playerWin.col); return; }
             const move = getUltimateAIMove();
-            if (move) makeMove(move.row, move.col);
+            if (move) {
+                makeMove(move.row, move.col);
+            } else {
+                // 终极兜底：随机空位
+                const emptyCells = [];
+                for (let r = 0; r < BOARD_SIZE; r++) for (let c = 0; c < BOARD_SIZE; c++) if (gameState.board[r][c] === EMPTY) emptyCells.push({row: r, col: c});
+                if (emptyCells.length) {
+                    const rand = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+                    makeMove(rand.row, rand.col);
+                } else {
+                    // 棋盘满，平局
+                    gameState.gameOver = true;
+                    showWinner(0); // 平局
+                }
+            }
         });
     }
 
@@ -519,7 +539,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (aiTimeoutHandle) { clearTimeout(aiTimeoutHandle); aiTimeoutHandle = null; }
         winMessage.classList.add('show');
         let name, egg;
-        if (player === PLAYER) {
+        if (player === 0) { // 平局
+            name = '平局';
+            egg = '棋盘已满，不分胜负。';
+        } else if (player === PLAYER) {
             name = gameState.mode === 'ai' ? '你赢了! (不可能吧?)' : '黑方胜利!';
             egg = gameState.mode === 'ai' ? '这怎么可能…这可是我的自研AI' : '精彩的对局！';
             if (gameState.mode === 'ai') addWinPoints();
@@ -532,7 +555,7 @@ document.addEventListener('DOMContentLoaded', () => {
             gameState.stats.aiWins++;
             aiScore.textContent = gameState.stats.aiWins;
         }
-        winnerDisplay.innerHTML = `<div class="player-icon ${player === PLAYER ? 'black-icon' : 'red-icon'}">●</div><div>${name}</div>`;
+        winnerDisplay.innerHTML = `<div class="player-icon ${player === PLAYER ? 'black-icon' : (player === AI ? 'red-icon' : '')}">${player === 0 ? '½' : '●'}</div><div>${name}</div>`;
         eggMessage.textContent = egg;
         updateGameStatus('over');
     }
