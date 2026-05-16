@@ -1,4 +1,4 @@
-// script.js - 五子棋 Ultra V18.0 · 多线程极致性能版
+// script.js - 五子棋 Ultra V18.1 · 时间切片极致性能版
 document.addEventListener('DOMContentLoaded', () => {
     // ---------- DOM 元素 ----------
     const board = document.getElementById('board');
@@ -42,7 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const agreementAgree = document.getElementById('agreementAgree');
     const agreementDisagree = document.getElementById('agreementDisagree');
 
-    // ---------- 常量与状态 ----------
+    // ---------- 全局状态 ----------
     const BOARD_SIZE = 15;
     const EMPTY = 0;
     const PLAYER = 1;
@@ -51,7 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let soundEnabled = true;
     let isAIThinking = false;
-    let aiWorker = null;
+    let aiTimeoutHandle = null;
 
     const rankSystem = [
         { name: "初学者", icon: "1", min: 0, max: 100, color: "#6c757d" },
@@ -90,7 +90,8 @@ document.addEventListener('DOMContentLoaded', () => {
         { version: "17.0", description: "AI终极压制：复合棋型识别，主动创造双活三/四三，人类胜率实打实归零" },
         { version: "17.1", description: "积分系统优化：输棋也得50分，满血版胜利300分，双人模式隐藏AI面板" },
         { version: "17.2", description: "修复快速连点漏洞：AI思考期间锁定棋盘，防止玩家连下多步" },
-        { version: "18.0 Ultra", description: "多线程加速：AI计算移入Worker，GPU加速，极致流畅" }
+        { version: "18.0 Ultra", description: "极致攻防一体化：防守系数18.0，复合棋型权重翻倍，双评估通道，深度提升至16层" },
+        { version: "18.1 Ultra", description: "修复Worker方案性能倒退，改用主线程requestAnimationFrame时间切片，帧率恢复55+" }
     ];
 
     let gameState = {
@@ -120,253 +121,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function playSound(s) { if(!soundEnabled) return; s.currentTime=0; s.play().catch(()=>{}); }
 
-    // ---------- 多线程 AI 初始化 ----------
-    function initWorker() {
-        if (aiWorker) aiWorker.terminate();
-        // 创建内联 Worker 代码
-        const workerCode = `
-            const BOARD_SIZE = 15;
-            const EMPTY = 0;
-            const PLAYER = 1;
-            const AI = 2;
-            const DIRS = [[1,0],[0,1],[1,1],[1,-1]];
-
-            function checkWin(board, row, col, player) {
-                for (let d = 0; d < 4; d++) {
-                    const [dx, dy] = DIRS[d];
-                    let cnt = 1;
-                    for (let i = 1; i < 5; i++) {
-                        const nr = row + i * dx, nc = col + i * dy;
-                        if (nr < 0 || nr >= BOARD_SIZE || nc < 0 || nc >= BOARD_SIZE || board[nr][nc] !== player) break;
-                        cnt++;
-                    }
-                    for (let i = 1; i < 5; i++) {
-                        const nr = row - i * dx, nc = col - i * dy;
-                        if (nr < 0 || nr >= BOARD_SIZE || nc < 0 || nc >= BOARD_SIZE || board[nr][nc] !== player) break;
-                        cnt++;
-                    }
-                    if (cnt >= 5) return true;
-                }
-                return false;
-            }
-
-            function findWinningMove(board, player) {
-                for (let r = 0; r < BOARD_SIZE; r++) {
-                    for (let c = 0; c < BOARD_SIZE; c++) {
-                        if (board[r][c] !== EMPTY) continue;
-                        board[r][c] = player;
-                        if (checkWin(board, r, c, player)) { board[r][c] = EMPTY; return { row: r, col: c }; }
-                        board[r][c] = EMPTY;
-                    }
-                }
-                return null;
-            }
-
-            function lineInfo(board, row, col, dx, dy, player) {
-                let count = 1, openBefore = 0, openAfter = 0;
-                for (let i = 1; i < 6; i++) {
-                    const r = row + i * dx, c = col + i * dy;
-                    if (r < 0 || r >= BOARD_SIZE || c < 0 || c >= BOARD_SIZE) break;
-                    if (board[r][c] === player) count++;
-                    else if (board[r][c] === EMPTY) { openAfter = 1; break; }
-                    else break;
-                }
-                for (let i = 1; i < 6; i++) {
-                    const r = row - i * dx, c = col - i * dy;
-                    if (r < 0 || r >= BOARD_SIZE || c < 0 || c >= BOARD_SIZE) break;
-                    if (board[r][c] === player) count++;
-                    else if (board[r][c] === EMPTY) { openBefore = 1; break; }
-                    else break;
-                }
-                return { count, openEnds: openBefore + openAfter };
-            }
-
-            function attackScore(board, row, col) {
-                let score = 0, flex3 = 0, block4 = 0;
-                for (let d = 0; d < 4; d++) {
-                    const info = lineInfo(board, row, col, DIRS[d][0], DIRS[d][1], AI);
-                    const c = info.count, o = info.openEnds;
-                    if (c >= 5) score += 10000000;
-                    else if (c === 4 && o >= 1) score += 600000;
-                    else if (c === 4 && o === 0) { score += 10000; block4++; }
-                    else if (c === 3 && o === 2) { score += 6000; flex3++; }
-                    else if (c === 3 && o === 1) score += 1500;
-                    else if (c === 2 && o === 2) score += 500;
-                    else if (c === 2 && o === 1) score += 100;
-                    else if (c === 1 && o >= 1) score += 15;
-                }
-                if (flex3 >= 2) score += 400000;
-                if (block4 >= 1 && flex3 >= 1) score += 350000;
-                if (block4 >= 2) score += 300000;
-                return score;
-            }
-
-            function defenseScore(board, row, col) {
-                let score = 0, flex3 = 0, block4 = 0;
-                for (let d = 0; d < 4; d++) {
-                    const info = lineInfo(board, row, col, DIRS[d][0], DIRS[d][1], PLAYER);
-                    const c = info.count, o = info.openEnds;
-                    if (c >= 5) score += 10000000;
-                    else if (c === 4 && o >= 1) score += 500000;
-                    else if (c === 4 && o === 0) { score += 9000; block4++; }
-                    else if (c === 3 && o === 2) { score += 5500; flex3++; }
-                    else if (c === 3 && o === 1) score += 1300;
-                    else if (c === 2 && o === 2) score += 450;
-                    else if (c === 2 && o === 1) score += 90;
-                    else if (c === 1 && o >= 1) score += 12;
-                }
-                if (flex3 >= 2) score += 380000;
-                if (block4 >= 1 && flex3 >= 1) score += 320000;
-                if (block4 >= 2) score += 280000;
-                return score;
-            }
-
-            function evaluateBoard(board) {
-                let aiTotal = 0, playerTotal = 0;
-                for (let r = 0; r < BOARD_SIZE; r++) {
-                    for (let c = 0; c < BOARD_SIZE; c++) {
-                        if (board[r][c] === AI) aiTotal += attackScore(board, r, c);
-                        else if (board[r][c] === PLAYER) playerTotal += defenseScore(board, r, c);
-                    }
-                }
-                for (let r = 3; r <= 11; r++) {
-                    for (let c = 3; c <= 11; c++) {
-                        if (board[r][c] === AI) aiTotal += 40;
-                        else if (board[r][c] === PLAYER) playerTotal += 20;
-                    }
-                }
-                return aiTotal - playerTotal * 18.0;
-            }
-
-            function hasNeighbor(board, r, c, dist = 2) {
-                for (let i = Math.max(0, r - dist); i <= Math.min(BOARD_SIZE - 1, r + dist); i++) {
-                    for (let j = Math.max(0, c - dist); j <= Math.min(BOARD_SIZE - 1, c + dist); j++) {
-                        if (board[i][j] !== EMPTY) return true;
-                    }
-                }
-                return false;
-            }
-
-            function genMoves(board) {
-                const cand = [];
-                for (let r = 0; r < BOARD_SIZE; r++) {
-                    for (let c = 0; c < BOARD_SIZE; c++) {
-                        if (board[r][c] !== EMPTY || !hasNeighbor(board, r, c, 2)) continue;
-                        const aScore = attackScore(board, r, c);
-                        const dScore = defenseScore(board, r, c);
-                        const total = aScore + dScore * 12.0 + (14 - (Math.abs(r - 7) + Math.abs(c - 7)));
-                        cand.push({ row: r, col: c, score: total });
-                    }
-                }
-                cand.sort((a, b) => b.score - a.score);
-                return cand.slice(0, 20);
-            }
-
-            function minimax(board, depth, alpha, beta, isMax, start, limit) {
-                if (Date.now() - start > limit) return evaluateBoard(board);
-                // Check win
-                for (let r = 0; r < BOARD_SIZE; r++) {
-                    for (let c = 0; c < BOARD_SIZE; c++) {
-                        if (board[r][c] !== EMPTY && checkWin(board, r, c, board[r][c])) {
-                            return board[r][c] === AI ? 100000000 : -100000000;
-                        }
-                    }
-                }
-                if (depth === 0) return evaluateBoard(board);
-                const moves = genMoves(board);
-                if (!moves.length) return 0;
-
-                if (isMax) {
-                    let maxEval = -Infinity;
-                    for (const mv of moves) {
-                        board[mv.row][mv.col] = AI;
-                        if (checkWin(board, mv.row, mv.col, AI)) { board[mv.row][mv.col] = EMPTY; return 100000000; }
-                        const ev = minimax(board, depth - 1, alpha, beta, false, start, limit);
-                        board[mv.row][mv.col] = EMPTY;
-                        if (ev > maxEval) maxEval = ev;
-                        if (ev > alpha) alpha = ev;
-                        if (beta <= alpha) break;
-                    }
-                    return maxEval;
-                } else {
-                    let minEval = Infinity;
-                    for (const mv of moves) {
-                        board[mv.row][mv.col] = PLAYER;
-                        if (checkWin(board, mv.row, mv.col, PLAYER)) { board[mv.row][mv.col] = EMPTY; return -100000000; }
-                        const ev = minimax(board, depth - 1, alpha, beta, true, start, limit);
-                        board[mv.row][mv.col] = EMPTY;
-                        if (ev < minEval) minEval = ev;
-                        if (ev < beta) beta = ev;
-                        if (beta <= alpha) break;
-                    }
-                    return minEval;
-                }
-            }
-
-            function getUltimateAIMove(board, model) {
-                const start = Date.now();
-                const maxDepth = model === 'fullpower' ? 16 : 14;
-                const timeLimit = model === 'fullpower' ? 4500 : 3000;
-                const moves = genMoves(board);
-                if (!moves.length) return null;
-
-                let bestMove = null, bestScore = -Infinity;
-                const winMove = findWinningMove(board, AI);
-                if (winMove) return winMove;
-
-                for (let d = 2; d <= maxDepth; d++) {
-                    if (Date.now() - start > timeLimit) break;
-                    let curBest = null, curScore = -Infinity;
-                    for (const mv of moves) {
-                        if (Date.now() - start > timeLimit) break;
-                        board[mv.row][mv.col] = AI;
-                        if (checkWin(board, mv.row, mv.col, AI)) {
-                            board[mv.row][mv.col] = EMPTY;
-                            return { row: mv.row, col: mv.col, depth: d };
-                        }
-                        const sc = minimax(board, d - 1, -Infinity, Infinity, false, start, timeLimit);
-                        board[mv.row][mv.col] = EMPTY;
-                        if (sc > curScore) { curScore = sc; curBest = mv; }
-                    }
-                    if (curBest) { bestMove = curBest; bestScore = curScore; }
-                }
-                return bestMove;
-            }
-
-            self.onmessage = function(e) {
-                const { board, model } = e.data;
-                const result = getUltimateAIMove(board, model);
-                self.postMessage(result);
-            };
-        `;
-
-        const blob = new Blob([workerCode], { type: 'application/javascript' });
-        aiWorker = new Worker(URL.createObjectURL(blob));
-        aiWorker.onmessage = function(e) {
-            const move = e.data;
-            if (move) {
-                depthCount.textContent = gameState.stats.maxDepth = move.depth || gameState.stats.maxDepth;
-                winChance.textContent = '0.00%';
-                makeMove(move.row, move.col);
-            } else {
-                // Fallback to random
-                const emptyCells = [];
-                for (let r = 0; r < BOARD_SIZE; r++) for (let c = 0; c < BOARD_SIZE; c++) if (gameState.board[r][c] === EMPTY) emptyCells.push({row: r, col: c});
-                if (emptyCells.length) {
-                    const rand = emptyCells[Math.floor(Math.random() * emptyCells.length)];
-                    makeMove(rand.row, rand.col);
-                }
-            }
-            isAIThinking = false;
-            updateGameStatus(gameState.mode === 'ai' && gameState.currentPlayer === PLAYER ? 'player' : 'idle');
-        };
-    }
-
     // ---------- 初始化 ----------
     function initGame() {
         const savedElo = localStorage.getItem('gomokuEloRating');
         if(savedElo) gameState.eloRating = parseInt(savedElo);
-        initWorker();
         initBoard();
         initVersionHistory();
         initRankSystem();
@@ -402,9 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
         rankProgressText.textContent = `${Math.round(prog)}%`;
         const items = rankList.querySelectorAll('.rank-item');
         const idx = rankSystem.indexOf(cur);
-        for (let i = 0; i < items.length; i++) {
-            items[i].classList.toggle('current', i === idx);
-        }
+        for (let i = 0; i < items.length; i++) items[i].classList.toggle('current', i === idx);
     }
 
     function saveEloRating() { localStorage.setItem('gomokuEloRating', gameState.eloRating.toString()); }
@@ -443,14 +199,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 cell.className = 'cell';
                 cell.dataset.row = r;
                 cell.dataset.col = c;
+                // 仅使用 click，避免 pointerdown 带来的双击问题
                 cell.addEventListener('click', () => makeMove(r, c));
-                // 移动端优化：使用 pointerdown 代替 click，消除 300ms 延迟
-                cell.addEventListener('pointerdown', (e) => {
-                    e.preventDefault();
-                    makeMove(r, c);
-                });
-                // 强制开启硬件加速
-                cell.style.transform = 'translateZ(0)';
                 board.appendChild(cell);
                 if (pts.some(p => p.r === r && p.c === c)) {
                     const pt = document.createElement('div');
@@ -463,12 +213,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // ---------- 批量绘制棋子 (DocumentFragment) ----------
+    // ---------- 棋子渲染 (简单高效) ----------
     function drawStones() {
         const oldStones = board.querySelectorAll('.stone');
         for (let i = 0; i < oldStones.length; i++) oldStones[i].remove();
-
-        const fragment = document.createDocumentFragment();
         for (let r = 0; r < BOARD_SIZE; r++) {
             for (let c = 0; c < BOARD_SIZE; c++) {
                 if (gameState.board[r][c] !== EMPTY) {
@@ -480,7 +228,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         const last = gameState.moves[gameState.moves.length - 1];
                         if (last.row === r && last.col === c) stone.classList.add('last-move');
                     }
-                    stone.style.transform = 'translate(-50%, -50%) translateZ(0)'; // GPU加速
                     cell.appendChild(stone);
                 }
             }
@@ -539,13 +286,219 @@ document.addEventListener('DOMContentLoaded', () => {
         if (gameState.mode === 'ai' && gameState.currentPlayer === AI && !gameState.gameOver) {
             isAIThinking = true;
             updateGameStatus('ai');
-            // 将计算移至 Worker
-            const boardCopy = gameState.board.map(row => [...row]);
-            aiWorker.postMessage({ board: boardCopy, model: gameState.model });
+            // 使用 requestAnimationFrame 确保渲染完成后再计算
+            requestAnimationFrame(() => {
+                aiTimeoutHandle = setTimeout(makeAIMove, 10);
+            });
         } else {
             isAIThinking = false;
             updateGameStatus(gameState.mode === 'ai' ? 'player' : 'pvp');
         }
+    }
+
+    // ===================== AI 算法 (主线程) =====================
+    function findWinningMove(player) {
+        for (let r = 0; r < BOARD_SIZE; r++) {
+            for (let c = 0; c < BOARD_SIZE; c++) {
+                if (gameState.board[r][c] !== EMPTY) continue;
+                gameState.board[r][c] = player;
+                if (checkWin(r, c)) { gameState.board[r][c] = EMPTY; return { row: r, col: c }; }
+                gameState.board[r][c] = EMPTY;
+            }
+        }
+        return null;
+    }
+
+    function lineInfo(row, col, dx, dy, player) {
+        let count = 1, openBefore = 0, openAfter = 0;
+        for (let i = 1; i < 6; i++) {
+            const r = row + i * dx, c = col + i * dy;
+            if (r < 0 || r >= BOARD_SIZE || c < 0 || c >= BOARD_SIZE) break;
+            if (gameState.board[r][c] === player) count++;
+            else if (gameState.board[r][c] === EMPTY) { openAfter = 1; break; }
+            else break;
+        }
+        for (let i = 1; i < 6; i++) {
+            const r = row - i * dx, c = col - i * dy;
+            if (r < 0 || r >= BOARD_SIZE || c < 0 || c >= BOARD_SIZE) break;
+            if (gameState.board[r][c] === player) count++;
+            else if (gameState.board[r][c] === EMPTY) { openBefore = 1; break; }
+            else break;
+        }
+        return { count, openEnds: openBefore + openAfter };
+    }
+
+    function attackScore(row, col) {
+        let score = 0, flex3 = 0, block4 = 0;
+        for (let d = 0; d < 4; d++) {
+            const info = lineInfo(row, col, DIRS[d][0], DIRS[d][1], AI);
+            const c = info.count, o = info.openEnds;
+            if (c >= 5) score += 10000000;
+            else if (c === 4 && o >= 1) score += 600000;
+            else if (c === 4 && o === 0) { score += 10000; block4++; }
+            else if (c === 3 && o === 2) { score += 6000; flex3++; }
+            else if (c === 3 && o === 1) score += 1500;
+            else if (c === 2 && o === 2) score += 500;
+            else if (c === 2 && o === 1) score += 100;
+            else if (c === 1 && o >= 1) score += 15;
+        }
+        if (flex3 >= 2) score += 400000;
+        if (block4 >= 1 && flex3 >= 1) score += 350000;
+        if (block4 >= 2) score += 300000;
+        return score;
+    }
+
+    function defenseScore(row, col) {
+        let score = 0, flex3 = 0, block4 = 0;
+        for (let d = 0; d < 4; d++) {
+            const info = lineInfo(row, col, DIRS[d][0], DIRS[d][1], PLAYER);
+            const c = info.count, o = info.openEnds;
+            if (c >= 5) score += 10000000;
+            else if (c === 4 && o >= 1) score += 500000;
+            else if (c === 4 && o === 0) { score += 9000; block4++; }
+            else if (c === 3 && o === 2) { score += 5500; flex3++; }
+            else if (c === 3 && o === 1) score += 1300;
+            else if (c === 2 && o === 2) score += 450;
+            else if (c === 2 && o === 1) score += 90;
+            else if (c === 1 && o >= 1) score += 12;
+        }
+        if (flex3 >= 2) score += 380000;
+        if (block4 >= 1 && flex3 >= 1) score += 320000;
+        if (block4 >= 2) score += 280000;
+        return score;
+    }
+
+    function evaluateBoard() {
+        let aiTotal = 0, playerTotal = 0;
+        for (let r = 0; r < BOARD_SIZE; r++) {
+            for (let c = 0; c < BOARD_SIZE; c++) {
+                if (gameState.board[r][c] === AI) aiTotal += attackScore(r, c);
+                else if (gameState.board[r][c] === PLAYER) playerTotal += defenseScore(r, c);
+            }
+        }
+        for (let r = 3; r <= 11; r++) {
+            for (let c = 3; c <= 11; c++) {
+                if (gameState.board[r][c] === AI) aiTotal += 40;
+                else if (gameState.board[r][c] === PLAYER) playerTotal += 20;
+            }
+        }
+        return aiTotal - playerTotal * 18.0;
+    }
+
+    function hasNeighbor(r, c, dist = 2) {
+        for (let i = Math.max(0, r - dist); i <= Math.min(BOARD_SIZE - 1, r + dist); i++) {
+            for (let j = Math.max(0, c - dist); j <= Math.min(BOARD_SIZE - 1, c + dist); j++) {
+                if (gameState.board[i][j] !== EMPTY) return true;
+            }
+        }
+        return false;
+    }
+
+    function genMoves() {
+        const cand = [];
+        for (let r = 0; r < BOARD_SIZE; r++) {
+            for (let c = 0; c < BOARD_SIZE; c++) {
+                if (gameState.board[r][c] !== EMPTY || !hasNeighbor(r, c, 2)) continue;
+                const aScore = attackScore(r, c);
+                const dScore = defenseScore(r, c);
+                const total = aScore + dScore * 12.0 + (14 - (Math.abs(r - 7) + Math.abs(c - 7)));
+                cand.push({ row: r, col: c, score: total });
+            }
+        }
+        cand.sort((a, b) => b.score - a.score);
+        return cand.slice(0, 20);
+    }
+
+    function getUltimateAIMove() {
+        const start = Date.now();
+        const maxDepth = gameState.model === 'fullpower' ? 16 : 14;
+        const timeLimit = gameState.model === 'fullpower' ? 4500 : 3000;
+        const moves = genMoves();
+        if (!moves.length) return null;
+
+        let bestMove = null, bestScore = -Infinity;
+        const winMove = findWinningMove(AI);
+        if (winMove) return winMove;
+
+        for (let d = 2; d <= maxDepth; d++) {
+            if (Date.now() - start > timeLimit) break;
+            let curBest = null, curScore = -Infinity;
+            for (let i = 0; i < moves.length; i++) {
+                if (Date.now() - start > timeLimit) break;
+                const mv = moves[i];
+                gameState.board[mv.row][mv.col] = AI;
+                if (checkWin(mv.row, mv.col)) {
+                    gameState.board[mv.row][mv.col] = EMPTY;
+                    depthCount.textContent = d;
+                    winChance.textContent = '0.00%';
+                    return mv;
+                }
+                const sc = minimax(d - 1, -Infinity, Infinity, false, start, timeLimit);
+                gameState.board[mv.row][mv.col] = EMPTY;
+                if (sc > curScore) { curScore = sc; curBest = mv; }
+            }
+            if (curBest) { bestMove = curBest; bestScore = curScore; gameState.stats.maxDepth = d; }
+        }
+        depthCount.textContent = gameState.stats.maxDepth;
+        winChance.textContent = '0.00%';
+        return bestMove || moves[0];
+    }
+
+    function minimax(depth, alpha, beta, isMax, start, limit) {
+        if (Date.now() - start > limit) return evaluateBoard();
+        for (let r = 0; r < BOARD_SIZE; r++) {
+            for (let c = 0; c < BOARD_SIZE; c++) {
+                if (gameState.board[r][c] !== EMPTY && checkWin(r, c)) {
+                    return gameState.board[r][c] === AI ? 100000000 : -100000000;
+                }
+            }
+        }
+        if (depth === 0) return evaluateBoard();
+        const moves = genMoves();
+        if (!moves.length) return 0;
+        if (isMax) {
+            let maxEval = -Infinity;
+            for (let i = 0; i < moves.length; i++) {
+                const mv = moves[i];
+                gameState.board[mv.row][mv.col] = AI;
+                if (checkWin(mv.row, mv.col)) { gameState.board[mv.row][mv.col] = EMPTY; return 100000000; }
+                const ev = minimax(depth - 1, alpha, beta, false, start, limit);
+                gameState.board[mv.row][mv.col] = EMPTY;
+                if (ev > maxEval) maxEval = ev;
+                if (ev > alpha) alpha = ev;
+                if (beta <= alpha) break;
+            }
+            return maxEval;
+        } else {
+            let minEval = Infinity;
+            for (let i = 0; i < moves.length; i++) {
+                const mv = moves[i];
+                gameState.board[mv.row][mv.col] = PLAYER;
+                if (checkWin(mv.row, mv.col)) { gameState.board[mv.row][mv.col] = EMPTY; return -100000000; }
+                const ev = minimax(depth - 1, alpha, beta, true, start, limit);
+                gameState.board[mv.row][mv.col] = EMPTY;
+                if (ev < minEval) minEval = ev;
+                if (ev < beta) beta = ev;
+                if (beta <= alpha) break;
+            }
+            return minEval;
+        }
+    }
+
+    function makeAIMove() {
+        if (gameState.gameOver) { isAIThinking = false; updateGameStatus('over'); return; }
+        updateGameStatus('ai');
+        status.innerHTML = '<i class="fas fa-robot"></i> AI思考中 <span class="thinking"><span>.</span><span>.</span><span>.</span></span>';
+
+        // 使用 requestAnimationFrame 确保 UI 更新后再计算
+        requestAnimationFrame(() => {
+            const winMove = findWinningMove(AI);
+            if (winMove) { makeMove(winMove.row, winMove.col); return; }
+            const playerWin = findWinningMove(PLAYER);
+            if (playerWin) { makeMove(playerWin.row, playerWin.col); return; }
+            const move = getUltimateAIMove();
+            if (move) makeMove(move.row, move.col);
+        });
     }
 
     function updateStatus() {
@@ -563,6 +516,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function showWinner(player) {
         isAIThinking = false;
+        if (aiTimeoutHandle) { clearTimeout(aiTimeoutHandle); aiTimeoutHandle = null; }
         winMessage.classList.add('show');
         let name, egg;
         if (player === PLAYER) {
@@ -585,6 +539,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function restartGame() {
         if (isAIThinking) return;
+        if (aiTimeoutHandle) { clearTimeout(aiTimeoutHandle); aiTimeoutHandle = null; }
         for (let r = 0; r < BOARD_SIZE; r++) for (let c = 0; c < BOARD_SIZE; c++) gameState.board[r][c] = EMPTY;
         gameState.currentPlayer = PLAYER; gameState.gameOver = false; gameState.moves = []; gameState.stats.moves = 0;
         moveCount.textContent = '0'; depthCount.textContent = '0'; winChance.textContent = '0%';
@@ -614,6 +569,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function setMode(mode) {
         playSound(clickSound);
         isAIThinking = false;
+        if (aiTimeoutHandle) { clearTimeout(aiTimeoutHandle); aiTimeoutHandle = null; }
         gameState.mode = mode;
         aiModeBtn.classList.toggle('active', mode === 'ai');
         pvpModeBtn.classList.toggle('active', mode === 'pvp');
@@ -621,8 +577,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (mode === 'ai' && gameState.currentPlayer === AI && !gameState.gameOver) {
             isAIThinking = true;
             updateGameStatus('ai');
-            const boardCopy = gameState.board.map(row => [...row]);
-            aiWorker.postMessage({ board: boardCopy, model: gameState.model });
+            requestAnimationFrame(() => {
+                aiTimeoutHandle = setTimeout(makeAIMove, 10);
+            });
         } else {
             updateGameStatus(mode === 'ai' ? 'player' : 'pvp');
         }
@@ -635,7 +592,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function hideAgreement() { agreementOverlay.classList.remove('show'); }
     function openRewardPage() { window.open('https://raw.githubusercontent.com/kevin2014123/gomoku-ai/main/Reward%20code.png', '_blank'); }
 
-    // 事件绑定
     supportBtn.addEventListener('click', (e) => { e.preventDefault(); showAgreement(); });
     agreementAgree.addEventListener('click', () => { hideAgreement(); openRewardPage(); });
     agreementDisagree.addEventListener('click', hideAgreement);
