@@ -1,4 +1,4 @@
-// script.js - 五子棋 Ultra 终极压制版 v17.1 (含状态显示模块)
+// script.js - 五子棋 Ultra 终极压制版 v17.2 (修复快速连点漏洞)
 document.addEventListener('DOMContentLoaded', () => {
     const board = document.getElementById('board');
     const status = document.getElementById('status');
@@ -42,6 +42,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const agreementDisagree = document.getElementById('agreementDisagree');
     
     let soundEnabled = true;
+    let isAIThinking = false; // ⭐ 新增：AI思考锁，防止快速连点漏洞
+    
     const rankSystem = [
         { name: "初学者", icon: "1", min: 0, max: 100, color: "#6c757d" },
         { name: "入门棋手", icon: "2", min: 101, max: 300, color: "#28a745" },
@@ -89,7 +91,8 @@ document.addEventListener('DOMContentLoaded', () => {
         { version: "16.0", description: "攻防极致强化：防守系数12.0，双人模式回归，增加打赏协议" },
         { version: "16.5", description: "新增GitHub Star宣传横幅，添加点击提示及悬停引导" },
         { version: "17.0", description: "AI终极压制：复合棋型识别，主动创造双活三/四三，人类胜率实打实归零" },
-        { version: "17.1", description: "积分系统优化：输棋也得50分，满血版胜利300分，双人模式隐藏AI面板，新增状态显示模块" }
+        { version: "17.1", description: "积分系统优化：输棋也得50分，满血版胜利300分，双人模式隐藏AI面板，新增状态显示模块" },
+        { version: "17.2", description: "修复快速连点漏洞：AI思考期间锁定棋盘，防止玩家连下多步" }
     ];
     
     let undoCount = 0;
@@ -119,6 +122,7 @@ document.addEventListener('DOMContentLoaded', () => {
         aiModeBtn.classList.add('active');
         pvpModeBtn.classList.remove('active');
         resetUndoCount();
+        isAIThinking = false;
         updateGameStatus('idle');
     }
     
@@ -220,6 +224,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function makeMove(row, col) {
+        // ⭐ 新增：AI思考期间完全禁止落子
+        if (isAIThinking) return;
+        // ⭐ 新增：双人对战模式不限制
+        if (gameState.mode !== 'pvp' && gameState.currentPlayer === 2) return;
+        
         if(gameState.gameOver || gameState.board[row][col] !== 0) return;
         playSound(placeSound);
         const prev = JSON.parse(JSON.stringify(gameState.board));
@@ -241,9 +250,11 @@ document.addEventListener('DOMContentLoaded', () => {
         turnIndicator.textContent = gameState.currentPlayer === 1 ? '黑方回合' : (gameState.mode === 'ai' ? 'AI (红) 回合' : '红方回合');
         turnIndicator.style.backgroundColor = gameState.currentPlayer === 1 ? '#333' : '#cc0000';
         if(gameState.mode === 'ai' && gameState.currentPlayer === 2 && !gameState.gameOver) {
+            isAIThinking = true; // ⭐ 锁定棋盘
             updateGameStatus('ai');
             setTimeout(makeAIMove, 100);
         } else {
+            isAIThinking = false; // ⭐ 解锁（双人模式或玩家回合）
             updateGameStatus(gameState.mode === 'ai' ? 'player' : 'pvp');
         }
     }
@@ -259,6 +270,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function makeAIMove() {
         if(gameState.gameOver) {
+            isAIThinking = false; // ⭐ 解锁
             updateGameStatus('over');
             return;
         }
@@ -271,6 +283,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if(playerWin) { makeMove(playerWin.row, playerWin.col); return; }
             let move = getUltimateHellAIMove();
             if(move) makeMove(move.row, move.col);
+            // makeMove 内部会在玩家回合时解锁，所以这里不需要重复操作
         }, 30);
     }
     
@@ -448,6 +461,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function showWinner(player) {
+        isAIThinking = false; // ⭐ 解锁
         winMessage.classList.add('show');
         let name, egg;
         if(player === 1) {
@@ -469,6 +483,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function restartGame() {
+        isAIThinking = false; // ⭐ 解锁
         gameState.board = Array(15).fill().map(() => Array(15).fill(0));
         gameState.currentPlayer=1; gameState.gameOver=false; gameState.moves=[]; gameState.stats.moves=0;
         moveCount.textContent='0'; depthCount.textContent='0'; winChance.textContent='0%';
@@ -479,7 +494,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function undoMove() {
-        if(gameState.moves.length===0||gameState.gameOver) return;
+        if(gameState.moves.length===0||gameState.gameOver||isAIThinking) return; // ⭐ AI思考期间禁止悔棋
         playSound(clickSound);
         const last=gameState.moves.pop();
         gameState.board=last.prevBoard; gameState.currentPlayer=last.player; gameState.gameOver=false;
@@ -495,6 +510,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function setMode(mode) {
         playSound(clickSound);
+        isAIThinking = false; // ⭐ 切换模式时解锁
         gameState.mode = mode;
         aiModeBtn.classList.toggle('active', mode === 'ai');
         pvpModeBtn.classList.toggle('active', mode === 'pvp');
@@ -504,6 +520,7 @@ document.addEventListener('DOMContentLoaded', () => {
             aiDifficultyPanel.style.display = 'block';
         }
         if(mode === 'ai' && gameState.currentPlayer === 2 && !gameState.gameOver) {
+            isAIThinking = true;
             updateGameStatus('ai');
             setTimeout(makeAIMove, 100);
         } else {
