@@ -1,5 +1,5 @@
 // =====================================================
-// 五子棋 Ultra V18.2.1 · 强制落子兜底修复版
+// 五子棋 Ultra V18.0 · 纯净标准版（14层，防守18.0）
 // =====================================================
 document.addEventListener('DOMContentLoaded', () => {
     // ---------- DOM 元素 ----------
@@ -53,8 +53,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let soundEnabled = true;
     let isAIThinking = false;
-    let aiTimeoutHandle = null;
-    let forceMoveTimer = null;
 
     const rankSystem = [
         { name: "初学者", icon: "1", min: 0, max: 100, color: "#6c757d" },
@@ -93,9 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
         { version: "17.0", description: "AI终极压制：复合棋型识别，主动创造双活三/四三，人类胜率实打实归零" },
         { version: "17.1", description: "积分系统优化：输棋也得50分，满血版胜利300分，双人模式隐藏AI面板" },
         { version: "17.2", description: "修复快速连点漏洞：AI思考期间锁定棋盘，防止玩家连下多步" },
-        { version: "18.0 Ultra", description: "极致攻防一体化：防守系数18.0，复合棋型权重翻倍，双评估通道，深度提升至16层" },
-        { version: "18.1 Ultra", description: "移除Worker方案，回归主线程+requestAnimationFrame时间切片，帧率恢复55+" },
-        { version: "18.2 Ultra", description: "双保险强制落子，彻底杜绝AI卡死，超时自动从最佳候选落子" }
+        { version: "18.0 Ultra", description: "极致攻防一体化：防守系数18.0，复合棋型权重翻倍，双评估通道，深度提升至14层" }
     ];
 
     let gameState = {
@@ -105,7 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
         moves: [],
         mode: 'ai',
         difficulty: 'ultimatehell',
-        model: 'normal',
+        model: 'normal', // 固定标准版
         stats: { playerWins: 0, aiWins: 0, moves: 0, maxDepth: 0 },
         eloRating: 0
     };
@@ -169,7 +165,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function saveEloRating() { localStorage.setItem('gomokuEloRating', gameState.eloRating.toString()); }
     function addWinPoints() {
-        let pts = gameState.model === 'fullpower' ? 300 : 100;
+        let pts = 100; // 只有标准版，胜利+100
         gameState.eloRating += pts;
         saveEloRating();
         updateRankDisplay();
@@ -264,7 +260,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (gameState.mode !== 'pvp' && gameState.currentPlayer === AI) return;
         if (gameState.gameOver || gameState.board[row][col] !== EMPTY) return;
 
-        clearTimeout(forceMoveTimer);
         playSound(placeSound);
         const prev = JSON.parse(JSON.stringify(gameState.board));
         gameState.board[row][col] = gameState.currentPlayer;
@@ -290,16 +285,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (gameState.mode === 'ai' && gameState.currentPlayer === AI && !gameState.gameOver) {
             isAIThinking = true;
             updateGameStatus('ai');
-            requestAnimationFrame(() => {
-                aiTimeoutHandle = setTimeout(makeAIMove, 10);
-            });
+            setTimeout(makeAIMove, 80);
         } else {
             isAIThinking = false;
             updateGameStatus(gameState.mode === 'ai' ? 'player' : 'pvp');
         }
     }
 
-    // ===================== AI 算法 =====================
+    // ===================== AI 算法 (18.0 Ultra 原始版本) =====================
     function findWinningMove(player) {
         for (let r = 0; r < BOARD_SIZE; r++) {
             for (let c = 0; c < BOARD_SIZE; c++) {
@@ -413,9 +406,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function getUltimateAIMove() {
-        const start = performance.now();
-        const maxDepth = gameState.model === 'fullpower' ? 16 : 14;
-        const timeLimit = gameState.model === 'fullpower' ? 4500 : 3000;
+        const start = Date.now();
+        const maxDepth = 14;
+        const timeLimit = 3000;
         const moves = genMoves();
         if (!moves.length) return null;
 
@@ -424,10 +417,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (winMove) return winMove;
 
         for (let d = 2; d <= maxDepth; d++) {
-            if (performance.now() - start > timeLimit) break;
+            if (Date.now() - start > timeLimit) break;
             let curBest = null, curScore = -Infinity;
             for (let i = 0; i < moves.length; i++) {
-                if (performance.now() - start > timeLimit) break;
+                if (Date.now() - start > timeLimit) break;
                 const mv = moves[i];
                 gameState.board[mv.row][mv.col] = AI;
                 if (checkWin(mv.row, mv.col)) {
@@ -448,8 +441,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function minimax(depth, alpha, beta, isMax, start, limit) {
-        if (performance.now() - start > limit) return evaluateBoard();
-        // 终局检测
+        if (Date.now() - start > limit) return evaluateBoard();
         for (let r = 0; r < BOARD_SIZE; r++) {
             for (let c = 0; c < BOARD_SIZE; c++) {
                 if (gameState.board[r][c] !== EMPTY && checkWin(r, c)) {
@@ -460,11 +452,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (depth === 0) return evaluateBoard();
         const moves = genMoves();
         if (!moves.length) return 0;
-
         if (isMax) {
             let maxEval = -Infinity;
             for (let i = 0; i < moves.length; i++) {
-                if (performance.now() - start > limit) return maxEval === -Infinity ? evaluateBoard() : maxEval;
                 const mv = moves[i];
                 gameState.board[mv.row][mv.col] = AI;
                 if (checkWin(mv.row, mv.col)) { gameState.board[mv.row][mv.col] = EMPTY; return 100000000; }
@@ -478,7 +468,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             let minEval = Infinity;
             for (let i = 0; i < moves.length; i++) {
-                if (performance.now() - start > limit) return minEval === Infinity ? evaluateBoard() : minEval;
                 const mv = moves[i];
                 gameState.board[mv.row][mv.col] = PLAYER;
                 if (checkWin(mv.row, mv.col)) { gameState.board[mv.row][mv.col] = EMPTY; return -100000000; }
@@ -496,46 +485,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (gameState.gameOver) { isAIThinking = false; updateGameStatus('over'); return; }
         updateGameStatus('ai');
         status.innerHTML = '<i class="fas fa-robot"></i> AI思考中 <span class="thinking"><span>.</span><span>.</span><span>.</span></span>';
-
-        // 外层强制超时：最多 5 秒必须落子
-        forceMoveTimer = setTimeout(() => {
-            if (!isAIThinking) return;
-            // 强制从候选列表取第一个，或随机空位
-            const moves = genMoves();
-            if (moves.length) {
-                makeMove(moves[0].row, moves[0].col);
-            } else {
-                const emptyCells = [];
-                for (let r = 0; r < BOARD_SIZE; r++) for (let c = 0; c < BOARD_SIZE; c++) if (gameState.board[r][c] === EMPTY) emptyCells.push({row: r, col: c});
-                if (emptyCells.length) {
-                    const rand = emptyCells[Math.floor(Math.random() * emptyCells.length)];
-                    makeMove(rand.row, rand.col);
-                }
-            }
-        }, 5000);
-
-        requestAnimationFrame(() => {
+        setTimeout(() => {
             const winMove = findWinningMove(AI);
-            if (winMove) { clearTimeout(forceMoveTimer); makeMove(winMove.row, winMove.col); return; }
+            if (winMove) { makeMove(winMove.row, winMove.col); return; }
             const playerWin = findWinningMove(PLAYER);
-            if (playerWin) { clearTimeout(forceMoveTimer); makeMove(playerWin.row, playerWin.col); return; }
+            if (playerWin) { makeMove(playerWin.row, playerWin.col); return; }
             const move = getUltimateAIMove();
-            clearTimeout(forceMoveTimer);
-            if (move) {
-                makeMove(move.row, move.col);
-            } else {
-                // 兜底随机空位
-                const emptyCells = [];
-                for (let r = 0; r < BOARD_SIZE; r++) for (let c = 0; c < BOARD_SIZE; c++) if (gameState.board[r][c] === EMPTY) emptyCells.push({row: r, col: c});
-                if (emptyCells.length) {
-                    const rand = emptyCells[Math.floor(Math.random() * emptyCells.length)];
-                    makeMove(rand.row, rand.col);
-                } else {
-                    gameState.gameOver = true;
-                    showWinner(0);
-                }
-            }
-        });
+            if (move) makeMove(move.row, move.col);
+        }, 20);
     }
 
     function updateStatus() {
@@ -553,14 +510,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function showWinner(player) {
         isAIThinking = false;
-        clearTimeout(forceMoveTimer);
-        if (aiTimeoutHandle) { clearTimeout(aiTimeoutHandle); aiTimeoutHandle = null; }
         winMessage.classList.add('show');
         let name, egg;
-        if (player === 0) {
-            name = '平局';
-            egg = '棋盘已满，不分胜负。';
-        } else if (player === PLAYER) {
+        if (player === PLAYER) {
             name = gameState.mode === 'ai' ? '你赢了! (不可能吧?)' : '黑方胜利!';
             egg = gameState.mode === 'ai' ? '这怎么可能…这可是我的自研AI' : '精彩的对局！';
             if (gameState.mode === 'ai') addWinPoints();
@@ -573,15 +525,13 @@ document.addEventListener('DOMContentLoaded', () => {
             gameState.stats.aiWins++;
             aiScore.textContent = gameState.stats.aiWins;
         }
-        winnerDisplay.innerHTML = `<div class="player-icon ${player === PLAYER ? 'black-icon' : (player === AI ? 'red-icon' : '')}">${player === 0 ? '½' : '●'}</div><div>${name}</div>`;
+        winnerDisplay.innerHTML = `<div class="player-icon ${player === PLAYER ? 'black-icon' : 'red-icon'}">●</div><div>${name}</div>`;
         eggMessage.textContent = egg;
         updateGameStatus('over');
     }
 
     function restartGame() {
         if (isAIThinking) return;
-        clearTimeout(forceMoveTimer);
-        if (aiTimeoutHandle) { clearTimeout(aiTimeoutHandle); aiTimeoutHandle = null; }
         for (let r = 0; r < BOARD_SIZE; r++) for (let c = 0; c < BOARD_SIZE; c++) gameState.board[r][c] = EMPTY;
         gameState.currentPlayer = PLAYER; gameState.gameOver = false; gameState.moves = []; gameState.stats.moves = 0;
         moveCount.textContent = '0'; depthCount.textContent = '0'; winChance.textContent = '0%';
@@ -607,12 +557,10 @@ document.addEventListener('DOMContentLoaded', () => {
         drawStones(); updateStatus(); incrementUndoCount();
     }
 
-    function setModel(m) { playSound(clickSound); gameState.model = m; modelBtns.forEach(b => b.classList.toggle('active', b.dataset.model === m)); winChance.textContent = '0.00%'; }
+    function setModel(m) { /* 无操作，固定标准版 */ }
     function setMode(mode) {
         playSound(clickSound);
         isAIThinking = false;
-        clearTimeout(forceMoveTimer);
-        if (aiTimeoutHandle) { clearTimeout(aiTimeoutHandle); aiTimeoutHandle = null; }
         gameState.mode = mode;
         aiModeBtn.classList.toggle('active', mode === 'ai');
         pvpModeBtn.classList.toggle('active', mode === 'pvp');
@@ -620,9 +568,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (mode === 'ai' && gameState.currentPlayer === AI && !gameState.gameOver) {
             isAIThinking = true;
             updateGameStatus('ai');
-            requestAnimationFrame(() => {
-                aiTimeoutHandle = setTimeout(makeAIMove, 10);
-            });
+            setTimeout(makeAIMove, 80);
         } else {
             updateGameStatus(mode === 'ai' ? 'player' : 'pvp');
         }
@@ -644,7 +590,7 @@ document.addEventListener('DOMContentLoaded', () => {
     playAgainBtn.addEventListener('click', () => { playSound(clickSound); winMessage.classList.remove('show'); restartGame(); });
     viewBoardBtn.addEventListener('click', () => { playSound(clickSound); winMessage.classList.remove('show'); });
     undoBtn.addEventListener('click', undoMove);
-    modelBtns.forEach(b => b.addEventListener('click', () => setModel(b.dataset.model)));
+    modelBtns.forEach(b => b.addEventListener('click', () => {})); // 无效化模型按钮
     aiModeBtn.addEventListener('click', () => setMode('ai'));
     pvpModeBtn.addEventListener('click', () => setMode('pvp'));
     soundToggle.addEventListener('click', () => {
