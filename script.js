@@ -1,4 +1,4 @@
-// script.js - 五子棋 Ultra 终极压制版 v17.1 (含状态显示模块)
+// script.js - 五子棋 Ultra 终极压制版 v18.5 (逻辑强化: 双杀构造 + 反杀预判)
 document.addEventListener('DOMContentLoaded', () => {
     const board = document.getElementById('board');
     const status = document.getElementById('status');
@@ -35,12 +35,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const undoCountSpan = document.getElementById('undoCountValue');
     const gameStatusDisplay = document.getElementById('gameStatusDisplay');
     const gameStatusText = document.getElementById('gameStatusText');
-    
+
     const supportBtn = document.getElementById('supportBtn');
     const agreementOverlay = document.getElementById('agreementOverlay');
     const agreementAgree = document.getElementById('agreementAgree');
     const agreementDisagree = document.getElementById('agreementDisagree');
-    
+
     let soundEnabled = true;
     const rankSystem = [
         { name: "初学者", icon: "1", min: 0, max: 100, color: "#6c757d" },
@@ -52,7 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
         { name: "棋圣", icon: "7", min: 2201, max: 3000, color: "#fd7e14" },
         { name: "棋神", icon: "★", min: 3001, max: Infinity, color: "#ffc107" }
     ];
-    
+
     let gameState = {
         board: Array(15).fill().map(() => Array(15).fill(0)),
         currentPlayer: 1,
@@ -64,7 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
         stats: { playerWins: 0, aiWins: 0, moves: 0, maxDepth: 0 },
         eloRating: 0
     };
-    
+
     const versionHistory = [
         { version: "1.0", description: "非常简陋，轻轻松松就能赢" },
         { version: "2.0", description: "难度明显提升，特别是困难模式" },
@@ -89,14 +89,15 @@ document.addEventListener('DOMContentLoaded', () => {
         { version: "16.0", description: "攻防极致强化：防守系数12.0，双人模式回归，增加打赏协议" },
         { version: "16.5", description: "新增GitHub Star宣传横幅，添加点击提示及悬停引导" },
         { version: "17.0", description: "AI终极压制：复合棋型识别，主动创造双活三/四三，人类胜率实打实归零" },
-        { version: "17.1", description: "积分系统优化升级：输棋也得50分，满血版胜利300分，双人模式隐藏AI面板，新增状态显示模块" }
+        { version: "17.1", description: "积分系统优化升级：输棋也得50分，满血版胜利300分，双人模式隐藏AI面板，新增状态显示模块" },
+        { version: "18.5", description: "逻辑质变：AI主动构造双活三/四三杀棋 + 预判反杀 + 动态深度聚焦，难度断层提升" }
     ];
-    
+
     let undoCount = 0;
     function updateUndoDisplay() { if(undoCountSpan) undoCountSpan.innerText = undoCount; }
     function resetUndoCount() { undoCount = 0; updateUndoDisplay(); }
     function incrementUndoCount() { undoCount++; updateUndoDisplay(); }
-    
+
     function updateGameStatus(state) {
         if (!gameStatusText) return;
         switch(state) {
@@ -107,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'over': gameStatusText.textContent = '游戏结束'; break;
         }
     }
-    
+
     function initGame() {
         const savedElo = localStorage.getItem('gomokuEloRating');
         if(savedElo) gameState.eloRating = parseInt(savedElo);
@@ -121,7 +122,7 @@ document.addEventListener('DOMContentLoaded', () => {
         resetUndoCount();
         updateGameStatus('idle');
     }
-    
+
     function initRankSystem() {
         rankList.innerHTML = '';
         rankSystem.forEach(rank => {
@@ -132,7 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
             rankList.appendChild(item);
         });
     }
-    
+
     function updateRankDisplay() {
         const cur = rankSystem.find(r => gameState.eloRating >= r.min && gameState.eloRating <= r.max) || rankSystem[0];
         currentRankIcon.textContent = cur.icon;
@@ -144,7 +145,7 @@ document.addEventListener('DOMContentLoaded', () => {
         rankProgressText.textContent = `${Math.round(prog)}%`;
         document.querySelectorAll('.rank-item').forEach((el, idx) => el.classList.toggle('current', idx === rankSystem.indexOf(cur)));
     }
-    
+
     function saveEloRating() { localStorage.setItem('gomokuEloRating', gameState.eloRating.toString()); }
     function addWinPoints() {
         let pts = gameState.model === 'fullpower' ? 300 : 100;
@@ -160,7 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateRankDisplay();
         eggMessage.textContent += ` 获得${pts}积分！`;
     }
-    
+
     function initVersionHistory() {
         versionHistory.forEach((v, i) => {
             const div = document.createElement('div');
@@ -170,7 +171,7 @@ document.addEventListener('DOMContentLoaded', () => {
             versionList.appendChild(div);
         });
     }
-    
+
     function initBoard() {
         board.innerHTML = '';
         const pts = [{r:3,c:3},{r:3,c:11},{r:7,c:7},{r:11,c:3},{r:11,c:11}];
@@ -190,9 +191,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     }
-    
+
     function playSound(s) { if(!soundEnabled) return; s.currentTime=0; s.play().catch(()=>{}); }
-    
+
     function drawStones() {
         document.querySelectorAll('.stone').forEach(s => s.remove());
         for(let r=0; r<15; r++) for(let c=0; c<15; c++) if(gameState.board[r][c] !== 0) {
@@ -206,7 +207,7 @@ document.addEventListener('DOMContentLoaded', () => {
             cell.appendChild(stone);
         }
     }
-    
+
     const DIRS = [[1,0],[0,1],[1,1],[1,-1]];
     function checkWin(row, col) {
         const p = gameState.board[row][col];
@@ -218,7 +219,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return false;
     }
-    
+
     function makeMove(row, col) {
         if(gameState.gameOver || gameState.board[row][col] !== 0) return;
         playSound(placeSound);
@@ -247,7 +248,7 @@ document.addEventListener('DOMContentLoaded', () => {
             updateGameStatus(gameState.mode === 'ai' ? 'player' : 'pvp');
         }
     }
-    
+
     function findWinningMove(player) {
         for(let r=0; r<15; r++) for(let c=0; c<15; c++) if(gameState.board[r][c]===0) {
             gameState.board[r][c] = player;
@@ -256,7 +257,48 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return null;
     }
-    
+
+    // ---- 新增辅助函数：检测某个玩家在某个空位落子后，是否能形成双活三或四三（不直接赢，但下一手必胜）----
+    function willCreateDoubleThreat(row, col, player) {
+        if(gameState.board[row][col] !== 0) return false;
+        gameState.board[row][col] = player;
+        let threats = 0;
+        for(let [dx,dy] of DIRS) {
+            let info = lineInfoFull(row, col, dx, dy, player);
+            let c = info.count;
+            let o = info.openEnds;
+            // 活三（一端开放也算活三的变种，这里简化：count===3且openEnds>=1）
+            if(c === 3 && o >= 1) threats++;
+            // 冲四（count===4且openEnds===1）
+            if(c === 4 && o === 1) threats += 2;
+            // 活四直接必胜
+            if(c === 4 && o >= 2) { gameState.board[row][col] = 0; return true; }
+        }
+        gameState.board[row][col] = 0;
+        return threats >= 2;
+    }
+
+    function lineInfoFull(row, col, dx, dy, player) {
+        let count = 1;
+        let openBefore = 0, openAfter = 0;
+        for(let i=1; i<5; i++) {
+            let r = row + i*dx, c = col + i*dy;
+            if(r<0||r>=15||c<0||c>=15) break;
+            if(gameState.board[r][c] === player) count++;
+            else if(gameState.board[r][c] === 0) { openAfter = 1; break; }
+            else break;
+        }
+        for(let i=1; i<5; i++) {
+            let r = row - i*dx, c = col - i*dy;
+            if(r<0||r>=15||c<0||c>=15) break;
+            if(gameState.board[r][c] === player) count++;
+            else if(gameState.board[r][c] === 0) { openBefore = 1; break; }
+            else break;
+        }
+        let openEnds = openBefore + openAfter;
+        return { count, openEnds };
+    }
+
     function makeAIMove() {
         if(gameState.gameOver) {
             updateGameStatus('over');
@@ -265,16 +307,40 @@ document.addEventListener('DOMContentLoaded', () => {
         updateGameStatus('ai');
         status.innerHTML = '<i class="fas fa-robot"></i> AI思考中 <span class="thinking"><span>.</span><span>.</span><span>.</span></span>';
         setTimeout(() => {
+            // 1. 直接胜利
             let winMove = findWinningMove(2);
             if(winMove) { makeMove(winMove.row, winMove.col); return; }
+            // 2. 阻挡玩家直接胜利
             let playerWin = findWinningMove(1);
             if(playerWin) { makeMove(playerWin.row, playerWin.col); return; }
+            
+            // 3. 新增：寻找AI自己可以构造双杀的点（双活三/四三）
+            let doubleThreatMove = null;
+            for(let r=0; r<15; r++) for(let c=0; c<15; c++) {
+                if(gameState.board[r][c]===0 && willCreateDoubleThreat(r,c,2)) {
+                    doubleThreatMove = {row:r, col:c};
+                    break;
+                }
+            }
+            if(doubleThreatMove) { makeMove(doubleThreatMove.row, doubleThreatMove.col); return; }
+            
+            // 4. 预判玩家可能的双杀点，优先阻挡
+            let playerDoubleMove = null;
+            for(let r=0; r<15; r++) for(let c=0; c<15; c++) {
+                if(gameState.board[r][c]===0 && willCreateDoubleThreat(r,c,1)) {
+                    playerDoubleMove = {row:r, col:c};
+                    break;
+                }
+            }
+            if(playerDoubleMove) { makeMove(playerDoubleMove.row, playerDoubleMove.col); return; }
+            
+            // 5. 常规深度搜索
             let move = getUltimateHellAIMove();
             if(move) makeMove(move.row, move.col);
         }, 30);
     }
-    
-    // ========== 终极评估核心 ==========
+
+    // ========== 终极评估核心 (保留原有强度 + 动态聚焦) ==========
     function lineInfo(row, col, dx, dy, player) {
         let count = 1;
         let openBefore = 0, openAfter = 0;
@@ -295,7 +361,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let openEnds = openBefore + openAfter;
         return { count, openEnds, openBefore, openAfter };
     }
-    
+
     function positionValue(row, col, player) {
         let score = 0;
         let flex3Count = 0;
@@ -318,7 +384,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if(block4Count >= 2) score += 200000;
         return score;
     }
-    
+
     function evaluateBoard() {
         let aiScore = 0, playerScore = 0;
         for(let r=0; r<15; r++) for(let c=0; c<15; c++) {
@@ -331,12 +397,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return aiScore - playerScore * 15.0;
     }
-    
+
     function hasNeighbor(r,c,d=2) {
         for(let i=Math.max(0,r-d); i<=Math.min(14,r+d); i++) for(let j=Math.max(0,c-d); j<=Math.min(14,c+d); j++) if(gameState.board[i][j]!==0) return true;
         return false;
     }
-    
+
     function genMoves() {
         let cand = [];
         for(let r=0; r<15; r++) for(let c=0; c<15; c++) {
@@ -344,11 +410,11 @@ document.addEventListener('DOMContentLoaded', () => {
             gameState.board[r][c] = 2;
             let aiScore = positionValue(r, c, 2);
             gameState.board[r][c] = 0;
-            
+
             gameState.board[r][c] = 1;
             let playerScore = positionValue(r, c, 1);
             gameState.board[r][c] = 0;
-            
+
             let total = aiScore + playerScore * 10.0;
             total += 14 - (Math.abs(r-7) + Math.abs(c-7));
             cand.push({row: r, col: c, score: total});
@@ -356,19 +422,19 @@ document.addEventListener('DOMContentLoaded', () => {
         cand.sort((a,b) => b.score - a.score);
         return cand.slice(0, 15);
     }
-    
+
     function getUltimateHellAIMove() {
         let start = Date.now();
         let maxDepth = gameState.model === 'fullpower' ? 14 : 12;
         let timeLimit = gameState.model === 'fullpower' ? 3500 : 2500;
         let moves = genMoves();
         if(!moves.length) return null;
-        
+
         let bestMove = null;
         let bestScore = -Infinity;
         let winMove = findWinningMove(2);
         if(winMove) return winMove;
-        
+
         for(let d=2; d<=maxDepth; d++) {
             if(Date.now() - start > timeLimit) break;
             let curBest = null, curScore = -Infinity;
@@ -386,22 +452,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(sc > curScore) { curScore = sc; curBest = mv; }
             }
             if(curBest) { bestMove = curBest; bestScore = curScore; gameState.stats.maxDepth = d; }
+            // 动态聚焦：如果当前最优分数极高（比如已经接近必胜），则提前结束迭代
+            if(bestScore > 90000000) break;
         }
         depthCount.textContent = gameState.stats.maxDepth;
         winChance.textContent = '0.00%';
         return bestMove || moves[0];
     }
-    
+
     function minimax(depth, alpha, beta, isMax, start, limit) {
         if(Date.now() - start > limit) return evaluateBoard();
         let w = 0;
         for(let r=0;r<15;r++) for(let c=0;c<15;c++) if(gameState.board[r][c]!==0 && checkWin(r,c)) { w = gameState.board[r][c]; break; }
         if(w !== 0) return w === 2 ? 100000000 : -100000000;
         if(depth === 0) return evaluateBoard();
-        
+
         let moves = genMoves();
         if(!moves.length) return 0;
-        
+
         if(isMax) {
             let maxEval = -Infinity;
             for(let mv of moves) {
@@ -428,7 +496,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return minEval;
         }
     }
-    
+
     function updateStatus() {
         if(gameState.gameOver) {
             updateGameStatus('over');
@@ -446,7 +514,7 @@ document.addEventListener('DOMContentLoaded', () => {
             updateGameStatus('pvp');
         }
     }
-    
+
     function showWinner(player) {
         winMessage.classList.add('show');
         let name, egg;
@@ -467,7 +535,7 @@ document.addEventListener('DOMContentLoaded', () => {
         eggMessage.textContent = egg;
         updateGameStatus('over');
     }
-    
+
     function restartGame() {
         gameState.board = Array(15).fill().map(() => Array(15).fill(0));
         gameState.currentPlayer=1; gameState.gameOver=false; gameState.moves=[]; gameState.stats.moves=0;
@@ -477,7 +545,7 @@ document.addEventListener('DOMContentLoaded', () => {
         winMessage.classList.remove('show'); drawStones(); updateStatus(); resetUndoCount();
         updateGameStatus('idle');
     }
-    
+
     function undoMove() {
         if(gameState.moves.length===0||gameState.gameOver) return;
         playSound(clickSound);
@@ -490,9 +558,9 @@ document.addEventListener('DOMContentLoaded', () => {
         turnIndicator.style.backgroundColor = gameState.currentPlayer===1?'#333':'#cc0000';
         drawStones(); updateStatus(); incrementUndoCount();
     }
-    
+
     function setModel(m) { playSound(clickSound); gameState.model=m; modelBtns.forEach(b=>b.classList.toggle('active', b.dataset.model===m)); winChance.textContent='0.00%'; }
-    
+
     function setMode(mode) {
         playSound(clickSound);
         gameState.mode = mode;
@@ -512,17 +580,16 @@ document.addEventListener('DOMContentLoaded', () => {
         updateStatus();
         turnIndicator.textContent = gameState.currentPlayer === 1 ? '黑方回合' : (mode === 'ai' ? 'AI (红) 回合' : '红方回合');
     }
-    
-    // 协议弹窗逻辑
+
     function showAgreement() { agreementOverlay.classList.add('show'); playSound(clickSound); }
     function hideAgreement() { agreementOverlay.classList.remove('show'); }
     function openRewardPage() { window.open('https://raw.githubusercontent.com/kevin2014123/gomoku-ai/main/Reward%20code.png', '_blank'); }
-    
+
     supportBtn.addEventListener('click', (e) => { e.preventDefault(); showAgreement(); });
     agreementAgree.addEventListener('click', () => { hideAgreement(); openRewardPage(); });
     agreementDisagree.addEventListener('click', hideAgreement);
     agreementOverlay.addEventListener('click', (e) => { if(e.target === agreementOverlay) hideAgreement(); });
-    
+
     restartBtn.addEventListener('click', restartGame);
     playAgainBtn.addEventListener('click', () => { playSound(clickSound); winMessage.classList.remove('show'); restartGame(); });
     viewBoardBtn.addEventListener('click', () => { playSound(clickSound); winMessage.classList.remove('show'); });
@@ -531,6 +598,6 @@ document.addEventListener('DOMContentLoaded', () => {
     aiModeBtn.addEventListener('click', ()=>setMode('ai'));
     pvpModeBtn.addEventListener('click', ()=>setMode('pvp'));
     soundToggle.addEventListener('click', ()=>{ soundEnabled=!soundEnabled; soundToggle.innerHTML = soundEnabled ? '<i class="fas fa-volume-up"></i>' : '<i class="fas fa-volume-mute"></i>'; playSound(clickSound); });
-    
+
     initGame();
 });
