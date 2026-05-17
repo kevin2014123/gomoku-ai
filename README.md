@@ -20,9 +20,6 @@ An AI Gomoku game with multiple difficulty levels, using complete Minimax algori
 - 双人对战 / PvP Mode
 
 AI难度等级 / AI Difficulty Levels:
-- 简单 / Easy: 启发式 / Heuristic, 玩家胜率约40% / Player win rate ~40%
-- 中等 / Medium: 3层搜索 / 3-layer search, 玩家胜率约20% / Player win rate ~20%
-- 困难 / Hard: 5层搜索 / 5-layer search, 玩家胜率约5% / Player win rate ~5%
 - 万层地狱 / Myriad Hell: 12-14层搜索 / 12-14 layer search, 玩家胜率低于0.1% / Player win rate <0.1%
 
 万层地狱模式 / Myriad Hell Mode:
