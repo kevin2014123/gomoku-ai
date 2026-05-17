@@ -89,7 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
         { version: "16.0", description: "攻防极致强化：防守系数12.0，双人模式回归，增加打赏协议" },
         { version: "16.5", description: "新增GitHub Star宣传横幅，添加点击提示及悬停引导" },
         { version: "17.0", description: "AI终极压制：复合棋型识别，主动创造双活三/四三，人类胜率实打实归零" },
-        { version: "17.1", description: "积分系统优化：输棋也得50分，满血版胜利300分，双人模式隐藏AI面板，新增状态显示模块" }
+        { version: "17.1", description: "积分系统优化升级：输棋也得50分，满血版胜利300分，双人模式隐藏AI面板，新增状态显示模块" }
     ];
     
     let undoCount = 0;
