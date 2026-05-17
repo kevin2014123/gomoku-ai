@@ -124,7 +124,7 @@
                     </div>
                 </div>
                 
-                <!-- ⭐ 新增状态显示模块 ⭐ -->
+                <!-- 状态显示模块 -->
                 <div class="game-status-display" id="gameStatusDisplay">
                     <i class="fas fa-info-circle"></i>
                     <span id="gameStatusText">未开始</span>
@@ -156,16 +156,15 @@
                             <i class="fas fa-cogs"></i> AI模型
                         </div>
                         <div class="model-buttons">
+                            <!-- 仅保留正常版按钮，移除满血版 -->
                             <button class="model-btn active" data-model="normal">正常版</button>
-                            <button class="model-btn fullpower" data-model="fullpower">满血版</button>
                         </div>
                         <div class="difficulty-info">
-                            <p><strong>满血版特点：</strong></p>
+                            <p><strong>正常版特点：</strong></p>
                             <ul style="text-align: left; padding-left: 20px; margin-top: 5px;">
-                                <li>深度搜索增强至14层</li>
-                                <li>威胁检测系统升级</li>
-                                <li>胜率低于0.01%</li>
-                                <li>预判玩家未来3步走法</li>
+                                <li>深度搜索14层</li>
+                                <li>威胁检测系统完善</li>
+                                <li>极致进攻与防守平衡</li>
                             </ul>
                         </div>
                     </div>
