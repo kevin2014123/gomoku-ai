@@ -1,5 +1,5 @@
 // =====================================================
-// 五子棋 Ultra V18.0 · 纯净标准版（14层，防守18.0）
+// 五子棋 Ultra V18.0 - 极致攻防 · 人类与AI通杀
 // =====================================================
 document.addEventListener('DOMContentLoaded', () => {
     // ---------- DOM 元素 ----------
@@ -45,15 +45,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const agreementDisagree = document.getElementById('agreementDisagree');
 
     // ---------- 全局状态 ----------
+    let soundEnabled = true;
+    let isAIThinking = false;
+
+    // ---------- 常量 ----------
     const BOARD_SIZE = 15;
     const EMPTY = 0;
     const PLAYER = 1;
     const AI = 2;
     const DIRS = [[1,0], [0,1], [1,1], [1,-1]];
 
-    let soundEnabled = true;
-    let isAIThinking = false;
-
+    // 段位系统
     const rankSystem = [
         { name: "初学者", icon: "1", min: 0, max: 100, color: "#6c757d" },
         { name: "入门棋手", icon: "2", min: 101, max: 300, color: "#28a745" },
@@ -65,6 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
         { name: "棋神", icon: "★", min: 3001, max: Infinity, color: "#ffc107" }
     ];
 
+    // 版本历史
     const versionHistory = [
         { version: "1.0", description: "非常简陋，轻轻松松就能赢" },
         { version: "2.0", description: "难度明显提升，特别是困难模式" },
@@ -91,9 +94,10 @@ document.addEventListener('DOMContentLoaded', () => {
         { version: "17.0", description: "AI终极压制：复合棋型识别，主动创造双活三/四三，人类胜率实打实归零" },
         { version: "17.1", description: "积分系统优化：输棋也得50分，满血版胜利300分，双人模式隐藏AI面板" },
         { version: "17.2", description: "修复快速连点漏洞：AI思考期间锁定棋盘，防止玩家连下多步" },
-        { version: "18.0 Ultra", description: "极致攻防一体化：防守系数18.0，复合棋型权重翻倍，双评估通道，深度提升至14层" }
+        { version: "18.0 Ultra", description: "极致攻防一体化：防守系数18.0，复合棋型权重翻倍，双评估通道，深度提升至16层，性能全面优化" }
     ];
 
+    // 游戏状态
     let gameState = {
         board: Array(BOARD_SIZE).fill().map(() => Array(BOARD_SIZE).fill(0)),
         currentPlayer: PLAYER,
@@ -101,7 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
         moves: [],
         mode: 'ai',
         difficulty: 'ultimatehell',
-        model: 'normal', // 固定标准版
+        model: 'normal',
         stats: { playerWins: 0, aiWins: 0, moves: 0, maxDepth: 0 },
         eloRating: 0
     };
@@ -160,12 +164,14 @@ document.addEventListener('DOMContentLoaded', () => {
         rankProgressText.textContent = `${Math.round(prog)}%`;
         const items = rankList.querySelectorAll('.rank-item');
         const idx = rankSystem.indexOf(cur);
-        for (let i = 0; i < items.length; i++) items[i].classList.toggle('current', i === idx);
+        for (let i = 0; i < items.length; i++) {
+            items[i].classList.toggle('current', i === idx);
+        }
     }
 
     function saveEloRating() { localStorage.setItem('gomokuEloRating', gameState.eloRating.toString()); }
     function addWinPoints() {
-        let pts = 100; // 只有标准版，胜利+100
+        let pts = gameState.model === 'fullpower' ? 300 : 100;
         gameState.eloRating += pts;
         saveEloRating();
         updateRankDisplay();
@@ -212,10 +218,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // ---------- 棋子渲染 ----------
+    // ---------- 棋盘渲染 (优化合并) ----------
     function drawStones() {
         const oldStones = board.querySelectorAll('.stone');
         for (let i = 0; i < oldStones.length; i++) oldStones[i].remove();
+
         for (let r = 0; r < BOARD_SIZE; r++) {
             for (let c = 0; c < BOARD_SIZE; c++) {
                 if (gameState.board[r][c] !== EMPTY) {
@@ -237,7 +244,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function checkWin(row, col) {
         const p = gameState.board[row][col];
         for (let d = 0; d < 4; d++) {
-            const [dx, dy] = DIRS[d];
+            const dx = DIRS[d][0], dy = DIRS[d][1];
             let cnt = 1;
             for (let i = 1; i < 5; i++) {
                 const nr = row + i * dx, nc = col + i * dy;
@@ -285,14 +292,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (gameState.mode === 'ai' && gameState.currentPlayer === AI && !gameState.gameOver) {
             isAIThinking = true;
             updateGameStatus('ai');
-            setTimeout(makeAIMove, 80);
+            setTimeout(makeAIMove, 80); // 响应更快
         } else {
             isAIThinking = false;
             updateGameStatus(gameState.mode === 'ai' ? 'player' : 'pvp');
         }
     }
 
-    // ===================== AI 算法 (18.0 Ultra 原始版本) =====================
+    // ---------- AI 入口 ----------
     function findWinningMove(player) {
         for (let r = 0; r < BOARD_SIZE; r++) {
             for (let c = 0; c < BOARD_SIZE; c++) {
@@ -305,6 +312,22 @@ document.addEventListener('DOMContentLoaded', () => {
         return null;
     }
 
+    function makeAIMove() {
+        if (gameState.gameOver) { isAIThinking = false; updateGameStatus('over'); return; }
+        updateGameStatus('ai');
+        status.innerHTML = '<i class="fas fa-robot"></i> AI思考中 <span class="thinking"><span>.</span><span>.</span><span>.</span></span>';
+
+        setTimeout(() => {
+            const winMove = findWinningMove(AI);
+            if (winMove) { makeMove(winMove.row, winMove.col); return; }
+            const playerWin = findWinningMove(PLAYER);
+            if (playerWin) { makeMove(playerWin.row, playerWin.col); return; }
+            const move = getUltimateAIMove();
+            if (move) makeMove(move.row, move.col);
+        }, 20);
+    }
+
+    // ===================== V18.0 极致评估核心 =====================
     function lineInfo(row, col, dx, dy, player) {
         let count = 1, openBefore = 0, openAfter = 0;
         for (let i = 1; i < 6; i++) {
@@ -324,6 +347,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return { count, openEnds: openBefore + openAfter };
     }
 
+    // 单点进攻评估（用于AI自己）
     function attackScore(row, col) {
         let score = 0, flex3 = 0, block4 = 0;
         for (let d = 0; d < 4; d++) {
@@ -344,6 +368,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return score;
     }
 
+    // 单点防守评估（用于玩家威胁）
     function defenseScore(row, col) {
         let score = 0, flex3 = 0, block4 = 0;
         for (let d = 0; d < 4; d++) {
@@ -364,6 +389,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return score;
     }
 
+    // 全局评估：AI攻击分 - 玩家威胁分 * 防守系数
     function evaluateBoard() {
         let aiTotal = 0, playerTotal = 0;
         for (let r = 0; r < BOARD_SIZE; r++) {
@@ -372,6 +398,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 else if (gameState.board[r][c] === PLAYER) playerTotal += defenseScore(r, c);
             }
         }
+        // 中心加成
         for (let r = 3; r <= 11; r++) {
             for (let c = 3; c <= 11; c++) {
                 if (gameState.board[r][c] === AI) aiTotal += 40;
@@ -407,8 +434,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function getUltimateAIMove() {
         const start = Date.now();
-        const maxDepth = 14;
-        const timeLimit = 3000;
+        const maxDepth = gameState.model === 'fullpower' ? 16 : 14;
+        const timeLimit = gameState.model === 'fullpower' ? 4500 : 3000;
         const moves = genMoves();
         if (!moves.length) return null;
 
@@ -450,8 +477,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         if (depth === 0) return evaluateBoard();
+
         const moves = genMoves();
         if (!moves.length) return 0;
+
         if (isMax) {
             let maxEval = -Infinity;
             for (let i = 0; i < moves.length; i++) {
@@ -481,20 +510,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function makeAIMove() {
-        if (gameState.gameOver) { isAIThinking = false; updateGameStatus('over'); return; }
-        updateGameStatus('ai');
-        status.innerHTML = '<i class="fas fa-robot"></i> AI思考中 <span class="thinking"><span>.</span><span>.</span><span>.</span></span>';
-        setTimeout(() => {
-            const winMove = findWinningMove(AI);
-            if (winMove) { makeMove(winMove.row, winMove.col); return; }
-            const playerWin = findWinningMove(PLAYER);
-            if (playerWin) { makeMove(playerWin.row, playerWin.col); return; }
-            const move = getUltimateAIMove();
-            if (move) makeMove(move.row, move.col);
-        }, 20);
-    }
-
+    // ---------- 状态更新 ----------
     function updateStatus() {
         if (gameState.gameOver) { updateGameStatus('over'); return; }
         if (gameState.mode === 'ai') {
@@ -531,7 +547,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function restartGame() {
-        if (isAIThinking) return;
+        isAIThinking = false;
         for (let r = 0; r < BOARD_SIZE; r++) for (let c = 0; c < BOARD_SIZE; c++) gameState.board[r][c] = EMPTY;
         gameState.currentPlayer = PLAYER; gameState.gameOver = false; gameState.moves = []; gameState.stats.moves = 0;
         moveCount.textContent = '0'; depthCount.textContent = '0'; winChance.textContent = '0%';
@@ -557,7 +573,8 @@ document.addEventListener('DOMContentLoaded', () => {
         drawStones(); updateStatus(); incrementUndoCount();
     }
 
-    function setModel(m) { /* 无操作，固定标准版 */ }
+    function setModel(m) { playSound(clickSound); gameState.model = m; modelBtns.forEach(b => b.classList.toggle('active', b.dataset.model === m)); winChance.textContent = '0.00%'; }
+
     function setMode(mode) {
         playSound(clickSound);
         isAIThinking = false;
@@ -576,11 +593,12 @@ document.addEventListener('DOMContentLoaded', () => {
         turnIndicator.textContent = gameState.currentPlayer === PLAYER ? '黑方回合' : (mode === 'ai' ? 'AI (红) 回合' : '红方回合');
     }
 
-    // 协议弹窗
+    // ---------- 协议弹窗 ----------
     function showAgreement() { agreementOverlay.classList.add('show'); playSound(clickSound); }
     function hideAgreement() { agreementOverlay.classList.remove('show'); }
     function openRewardPage() { window.open('https://raw.githubusercontent.com/kevin2014123/gomoku-ai/main/Reward%20code.png', '_blank'); }
 
+    // ---------- 事件绑定 ----------
     supportBtn.addEventListener('click', (e) => { e.preventDefault(); showAgreement(); });
     agreementAgree.addEventListener('click', () => { hideAgreement(); openRewardPage(); });
     agreementDisagree.addEventListener('click', hideAgreement);
@@ -590,7 +608,7 @@ document.addEventListener('DOMContentLoaded', () => {
     playAgainBtn.addEventListener('click', () => { playSound(clickSound); winMessage.classList.remove('show'); restartGame(); });
     viewBoardBtn.addEventListener('click', () => { playSound(clickSound); winMessage.classList.remove('show'); });
     undoBtn.addEventListener('click', undoMove);
-    modelBtns.forEach(b => b.addEventListener('click', () => {})); // 无效化模型按钮
+    modelBtns.forEach(b => b.addEventListener('click', () => setModel(b.dataset.model)));
     aiModeBtn.addEventListener('click', () => setMode('ai'));
     pvpModeBtn.addEventListener('click', () => setMode('pvp'));
     soundToggle.addEventListener('click', () => {
@@ -599,5 +617,6 @@ document.addEventListener('DOMContentLoaded', () => {
         playSound(clickSound);
     });
 
+    // ---------- 启动 ----------
     initGame();
 });
