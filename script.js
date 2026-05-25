@@ -1,4 +1,4 @@
-// script.js - 五子棋 Ultra 终极压制版 v18.5 (满血版默认)
+// script.js - 五子棋 Ultra 终极压制版 v18.5 (满血版默认) 
 document.addEventListener('DOMContentLoaded', () => {
     const board = document.getElementById('board');
     const status = document.getElementById('status');
