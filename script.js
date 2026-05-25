@@ -1,4 +1,4 @@
-// script.js - 五子棋 Ultra 终极压制版 v18.5 (逻辑强化: 双杀构造 + 反杀预判)
+// script.js - 五子棋 Ultra 终极压制版 v18.5 (满血版默认)
 document.addEventListener('DOMContentLoaded', () => {
     const board = document.getElementById('board');
     const status = document.getElementById('status');
@@ -60,7 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
         moves: [],
         mode: 'ai',
         difficulty: 'ultimatehell',
-        model: 'normal',
+        model: 'fullpower', // 默认满血版
         stats: { playerWins: 0, aiWins: 0, moves: 0, maxDepth: 0 },
         eloRating: 0
     };
@@ -119,6 +119,11 @@ document.addEventListener('DOMContentLoaded', () => {
         updateStatus();
         aiModeBtn.classList.add('active');
         pvpModeBtn.classList.remove('active');
+        // 默认选中满血版按钮
+        modelBtns.forEach(btn => {
+            if(btn.dataset.model === 'fullpower') btn.classList.add('active');
+            else btn.classList.remove('active');
+        });
         resetUndoCount();
         updateGameStatus('idle');
     }
@@ -258,7 +263,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return null;
     }
 
-    // ---- 新增辅助函数：检测某个玩家在某个空位落子后，是否能形成双活三或四三（不直接赢，但下一手必胜）----
     function willCreateDoubleThreat(row, col, player) {
         if(gameState.board[row][col] !== 0) return false;
         gameState.board[row][col] = player;
@@ -267,11 +271,8 @@ document.addEventListener('DOMContentLoaded', () => {
             let info = lineInfoFull(row, col, dx, dy, player);
             let c = info.count;
             let o = info.openEnds;
-            // 活三（一端开放也算活三的变种，这里简化：count===3且openEnds>=1）
             if(c === 3 && o >= 1) threats++;
-            // 冲四（count===4且openEnds===1）
             if(c === 4 && o === 1) threats += 2;
-            // 活四直接必胜
             if(c === 4 && o >= 2) { gameState.board[row][col] = 0; return true; }
         }
         gameState.board[row][col] = 0;
@@ -307,14 +308,11 @@ document.addEventListener('DOMContentLoaded', () => {
         updateGameStatus('ai');
         status.innerHTML = '<i class="fas fa-robot"></i> AI思考中 <span class="thinking"><span>.</span><span>.</span><span>.</span></span>';
         setTimeout(() => {
-            // 1. 直接胜利
             let winMove = findWinningMove(2);
             if(winMove) { makeMove(winMove.row, winMove.col); return; }
-            // 2. 阻挡玩家直接胜利
             let playerWin = findWinningMove(1);
             if(playerWin) { makeMove(playerWin.row, playerWin.col); return; }
             
-            // 3. 新增：寻找AI自己可以构造双杀的点（双活三/四三）
             let doubleThreatMove = null;
             for(let r=0; r<15; r++) for(let c=0; c<15; c++) {
                 if(gameState.board[r][c]===0 && willCreateDoubleThreat(r,c,2)) {
@@ -324,7 +322,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if(doubleThreatMove) { makeMove(doubleThreatMove.row, doubleThreatMove.col); return; }
             
-            // 4. 预判玩家可能的双杀点，优先阻挡
             let playerDoubleMove = null;
             for(let r=0; r<15; r++) for(let c=0; c<15; c++) {
                 if(gameState.board[r][c]===0 && willCreateDoubleThreat(r,c,1)) {
@@ -334,13 +331,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if(playerDoubleMove) { makeMove(playerDoubleMove.row, playerDoubleMove.col); return; }
             
-            // 5. 常规深度搜索
             let move = getUltimateHellAIMove();
             if(move) makeMove(move.row, move.col);
         }, 30);
     }
 
-    // ========== 终极评估核心 (保留原有强度 + 动态聚焦) ==========
     function lineInfo(row, col, dx, dy, player) {
         let count = 1;
         let openBefore = 0, openAfter = 0;
@@ -452,7 +447,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(sc > curScore) { curScore = sc; curBest = mv; }
             }
             if(curBest) { bestMove = curBest; bestScore = curScore; gameState.stats.maxDepth = d; }
-            // 动态聚焦：如果当前最优分数极高（比如已经接近必胜），则提前结束迭代
             if(bestScore > 90000000) break;
         }
         depthCount.textContent = gameState.stats.maxDepth;
