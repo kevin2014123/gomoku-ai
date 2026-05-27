@@ -63,13 +63,35 @@
         </div>
     </div>
 
+    <!-- 关于作者弹窗 -->
+    <div class="author-overlay" id="authorOverlay">
+        <div class="author-modal">
+            <div class="author-header">
+                <i class="fas fa-user-astronaut"></i>
+                <span>关于作者</span>
+                <button class="close-author" id="closeAuthorBtn">&times;</button>
+            </div>
+            <div class="author-body">
+                <p>我叫谢子涵，今年10岁。</p>
+                <p>平时喜欢研究手机系统底层，比如 /system、/data、/dev 这些分区，也折腾过 SELinux。研究过很多安卓底层的东西，把整个手机几乎摸透了。</p>
+                <p>两年前开始自学编程，学过 Python、C++，后来学了 HTML，然后写了这个五子棋 AI。</p>
+                <p>做这个项目的时候，经常一个人对着屏幕改 bug，有时候手机刷死了再救回来，反反复复。最后能把一个完整的东西做出来，自己心里还是挺高兴的。</p>
+                <p>谢谢你看完。</p>
+            </div>
+        </div>
+    </div>
+
     <div class="container">
         <div class="bg-pattern"></div>
         <div class="hell-fire"></div>
         
+        <!-- 右上角原有声音按钮旁边新增关于作者按钮 -->
         <div class="sound-toggle" id="soundToggle">
             <i class="fas fa-volume-up"></i>
         </div>
+        <button class="author-btn" id="authorBtn">
+            <i class="fas fa-user-astronaut"></i> 关于作者
+        </button>
         
         <header>
             <h1><i class="fas fa-chess-board"></i> 五子棋挑战Ultra</h1>
@@ -281,6 +303,176 @@
     <audio id="placeSound" src="https://assets.mixkit.co/sfx/preview/mixkit-arcade-game-jump-coin-216.mp3"></audio>
     <audio id="winSound" src="https://assets.mixkit.co/sfx/preview/mixkit-winning-chimes-2015.mp3"></audio>
     <audio id="clickSound" src="https://assets.mixkit.co/sfx/preview/mixkit-select-click-1109.mp3"></audio>
+    
+    <!-- 新增脚本：关于作者弹窗控制，不修改原有脚本逻辑 -->
+    <script>
+        // 关于作者弹窗逻辑（独立于原有script，不冲突）
+        (function() {
+            const authorBtn = document.getElementById('authorBtn');
+            const authorOverlay = document.getElementById('authorOverlay');
+            const closeAuthorBtn = document.getElementById('closeAuthorBtn');
+            
+            function openAuthorModal() {
+                if (authorOverlay) {
+                    authorOverlay.classList.add('show');
+                    // 播放点击声音（如果存在且需要）
+                    const clickSound = document.getElementById('clickSound');
+                    if (clickSound && typeof clickSound.play === 'function') {
+                        clickSound.currentTime = 0;
+                        clickSound.play().catch(() => {});
+                    }
+                }
+            }
+            
+            function closeAuthorModal() {
+                if (authorOverlay) {
+                    authorOverlay.classList.remove('show');
+                }
+            }
+            
+            if (authorBtn) {
+                authorBtn.addEventListener('click', openAuthorModal);
+            }
+            if (closeAuthorBtn) {
+                closeAuthorBtn.addEventListener('click', closeAuthorModal);
+            }
+            if (authorOverlay) {
+                authorOverlay.addEventListener('click', function(e) {
+                    if (e.target === authorOverlay) {
+                        closeAuthorModal();
+                    }
+                });
+            }
+        })();
+    </script>
+    
+    <!-- 补充作者弹窗的样式（不修改原有style.css，仅添加内联样式保证可见） -->
+    <style>
+        /* 关于作者按钮样式 */
+        .author-btn {
+            position: absolute;
+            top: 20px;
+            right: 70px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 69, 0, 0.3);
+            border-radius: 40px;
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            color: #ffcc00;
+            font-size: 0.9rem;
+            backdrop-filter: blur(4px);
+            transition: all 0.2s;
+            z-index: 10;
+            font-weight: bold;
+        }
+        .author-btn:hover {
+            background: rgba(255, 69, 0, 0.2);
+            transform: scale(1.02);
+        }
+        .author-btn i {
+            font-size: 1rem;
+        }
+        /* 作者弹窗覆盖层 */
+        .author-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(8px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10001;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        .author-overlay.show {
+            opacity: 1;
+            pointer-events: all;
+        }
+        .author-modal {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            border-radius: 24px;
+            max-width: 550px;
+            width: 90%;
+            padding: 30px;
+            border: 2px solid #ff4500;
+            box-shadow: 0 0 30px rgba(255, 69, 0, 0.5);
+            position: relative;
+            animation: modalFadeIn 0.3s ease-out;
+        }
+        @keyframes modalFadeIn {
+            from { transform: scale(0.9); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        .author-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 1.8rem;
+            color: #ffcc00;
+            margin-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 69, 0, 0.3);
+            padding-bottom: 15px;
+            position: relative;
+        }
+        .author-header i {
+            font-size: 2rem;
+        }
+        .close-author {
+            position: absolute;
+            right: 0;
+            top: 0;
+            background: none;
+            border: none;
+            font-size: 2rem;
+            color: #ffcc00;
+            cursor: pointer;
+            line-height: 1;
+            padding: 0 8px;
+            transition: transform 0.2s;
+        }
+        .close-author:hover {
+            transform: scale(1.1);
+            color: #ff4500;
+        }
+        .author-body {
+            color: #ddd;
+            font-size: 1rem;
+            line-height: 1.7;
+            text-align: left;
+        }
+        .author-body p {
+            margin-bottom: 16px;
+        }
+        @media (max-width: 600px) {
+            .author-btn {
+                top: 15px;
+                right: 65px;
+                padding: 6px 12px;
+                font-size: 0.8rem;
+            }
+            .author-modal {
+                padding: 20px;
+            }
+            .author-header {
+                font-size: 1.4rem;
+            }
+            .author-body {
+                font-size: 0.9rem;
+            }
+        }
+        /* 确保原有声音按钮位置不被遮挡 */
+        .sound-toggle {
+            right: 20px;
+        }
+    </style>
     
     <script src="script.js"></script>
 </body>
