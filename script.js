@@ -82,7 +82,8 @@ document.addEventListener('DOMContentLoaded', () => {
     { version: "12.0", description: "删除地狱模式，大幅提升简单、中等和困难模式的难度" },
     { version: "12.5", description: "万层地狱模式增加预判对手功能，难度再次提升" },
     { version: "13.0", description: "修复中等/困难模式AI功能缺失问题" },
-    { version: "13.1", description: "优化双人 Ultra", description: "全面升级，修复了无数个bug，提升了所有难度的 AI，所以我将它命名为 Ultra" },
+    { version: "13.1", description: "优化双人对战模式体验" },
+    { version: "14.0 Ultra", description: "全面升级，修复了无数个bug，提升了所有难度的 AI，所以我将它命名为 Ultra" },
     { version: "15.0 Ultra", description: "致命强化版：全新棋型权重评估，防守系数8.0" },
     { version: "15.1 Ultra", description: "修复AI放弃活四的严重bug，新增必胜着法检测通道" },
     { version: "16.0 Ultra", description: "攻防极致强化：防守系数12.0，双人模式回归，增加打赏协议" },
@@ -109,70 +110,59 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function initGame() {
-        const savedElo = (typeof localStorage !== 'undefined') ? localStorage.getItem('gomokuEloRating') : null;
+        const savedElo = localStorage.getItem('gomokuEloRating');
         if(savedElo) gameState.eloRating = parseInt(savedElo);
         initBoard();
         initVersionHistory();
         initRankSystem();
         updateRankDisplay();
         updateStatus();
-        if(aiModeBtn) aiModeBtn.classList.add('active');
-        if(pvpModeBtn) pvpModeBtn.classList.remove('active');
+        aiModeBtn.classList.add('active');
+        pvpModeBtn.classList.remove('active');
         resetUndoCount();
         updateGameStatus('idle');
     }
 
     function initRankSystem() {
-        if(!rankList) return;
         rankList.innerHTML = '';
         rankSystem.forEach(rank => {
             const item = document.createElement('div');
             item.className = 'rank-item';
-            if(typeof gameState.eloRating === 'number' && gameState.eloRating >= rank.min && gameState.eloRating <= rank.max) item.classList.add('current');
-            const maxText = rank.max === Infinity ? '∞' : rank.max;
-            item.innerHTML = `<div class="rank-item-icon" style="background: ${rank.color}">${rank.icon}</div>
-                              <div class="rank-item-name">${rank.name}</div>
-                              <div class="rank-item-points">${rank.min} - ${maxText}</div>`;
+            if(gameState.eloRating >= rank.min && gameState.eloRating <= rank.max) item.classList.add('current');
+            item.innerHTML = `<div class="rank-item-icon" style="background: ${rank.color}">${rank.icon}</div><div class="rank-item-name">${rank.name}</div><div class="rank-item-points">${rank.min} - ${rank.max === Infinity ? '∞' : rank.max}分</div>`;
             rankList.appendChild(item);
         });
     }
 
     function updateRankDisplay() {
         const cur = rankSystem.find(r => gameState.eloRating >= r.min && gameState.eloRating <= r.max) || rankSystem[0];
-        if(currentRankIcon) {
-            currentRankIcon.textContent = cur.icon;
-            currentRankIcon.style.background = `linear-gradient(135deg, ${cur.color}, #ffcc00)`;
-        }
-        if(currentRankName) currentRankName.textContent = cur.name;
-        if(currentRankPoints) currentRankPoints.textContent = `积分: ${gameState.eloRating}`;
-        if(rankProgressBar && rankProgressText) {
-            const prog =, ((gameState.eloRating - cur.min) / ((cur.max === Infinity ? cur.min + 1 : cur.max) - cur.min)) * 100));
-            rankProgressBar.style.width = `${prog}%`;
-            rankProgressText.textContent = `${Math.round(prog)}%`;
-        }
-        if(rankList) {
-            document.querySelectorAll('.rank-item').forEach((el, idx) => el.classList.toggle('current', idx === rankSystem.indexOf(cur)));
-        }
+        currentRankIcon.textContent = cur.icon;
+        currentRankName.textContent = cur.name;
+        currentRankIcon.style.background = `linear-gradient(135deg, ${cur.color}, #ffcc00)`;
+        currentRankPoints.textContent = `积分: ${gameState.eloRating}`;
+        const prog = Math.min(100, Math.max(0, ((gameState.eloRating - cur.min) / (cur.max - cur.min)) * 100));
+        rankProgressBar.style.width = `${prog}%`;
+        rankProgressText.textContent = `${Math.round(prog)}%`;
+        document.querySelectorAll('.rank-item').forEach((el, idx) => el.classList.toggle('current', idx === rankSystem.indexOf(cur)));
     }
 
-    function saveEloRating() { if(typeof localStorage !== 'undefined') localStorage.setItem('gomokuEloRating', gameState.eloRating.toString()); }
+    function saveEloRating() { localStorage.setItem('gomokuEloRating', gameState.eloRating.toString()); }
     function addWinPoints() {
         let pts = gameState.model === 'fullpower' ? 300 : 100;
         gameState.eloRating += pts;
         saveEloRating();
         updateRankDisplay();
-        if(eggMessage) eggMessage.textContent += ` 获得${pts}积分！`;
+        eggMessage.textContent += ` 获得${pts}积分！`;
     }
     function addLossPoints() {
         let pts = 50;
         gameState.eloRating += pts;
         saveEloRating();
         updateRankDisplay();
-        if(eggMessage) eggMessage.textContent += ` 获得${pts}积分！`;
+        eggMessage.textContent += ` 获得${pts}积分！`;
     }
 
     function initVersionHistory() {
-        if(!versionList) return;
         versionHistory.forEach((v, i) => {
             const div = document.createElement('div');
             div.className = 'version-item';
@@ -183,7 +173,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function initBoard() {
-        if(!board) return;
         board.innerHTML = '';
         const pts = [{r:3,c:3},{r:3,c:11},{r:7,c:7},{r:11,c:3},{r:11,c:11}];
         for(let r=0; r<15; r++) for(let c=0; c<15; c++) {
@@ -203,13 +192,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function playSound(s) { if(!soundEnabled || !s) return; try { s.currentTime=0; s.play().catch(()=>{}); } catch(e) {} }
+    function playSound(s) { if(!soundEnabled) return; s.currentTime=0; s.play().catch(()=>{}); }
 
     function drawStones() {
         document.querySelectorAll('.stone').forEach(s => s.remove());
         for(let r=0; r<15; r++) for(let c=0; c<15; c++) if(gameState.board[r][c] !== 0) {
             const cell = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
-            if(!cell) continue;
             const stone = document.createElement('div');
             stone.className = `stone ${gameState.board[r][c] === 1 ? 'black' : 'red'}`;
             if(gameState.moves.length) {
@@ -227,7 +215,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let cnt = 1;
             for(let i=1; i<5; i++) { let nr=row+i*dx, nc=col+i*dy; if(nr<0||nr>=15||nc<0||nc>=15||gameState.board[nr][nc]!==p) break; cnt++; }
             for(let i=1; i<5; i++) { let nr=row-i*dx, nc=col-i*dy; if(nr<0||nr>=15||nc<0||nc>=15||gameState.board[nr][nc]!==p) break; cnt++; }
-;
+            if(cnt >= 5) return true;
         }
         return false;
     }
@@ -239,7 +227,7 @@ document.addEventListener('DOMContentLoaded', () => {
         gameState.board[row][col] = gameState.currentPlayer;
         gameState.moves.push({row, col, player: gameState.currentPlayer, prevBoard: prev});
         gameState.stats.moves++;
-        if(moveCount) moveCount.textContent = gameState.stats.moves;
+        moveCount.textContent = gameState.stats.moves;
         drawStones();
         if(checkWin(row, col)) {
             gameState.gameOver = true;
@@ -249,12 +237,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         gameState.currentPlayer = gameState.currentPlayer === 1 ? 2 : 1;
         updateStatus();
-        if(playerBlack) playerBlack.classList.toggle('active', gameState.currentPlayer === 1);
-        if(playerRed) playerRed.classList.toggle('active', gameState.currentPlayer === 2);
-        if(turnIndicator) {
-            turnIndicator.textContent = gameState.currentPlayer === 1 ? '黑方回合' : (gameState.mode === 'ai' ? 'AI (红) 回合' : '红方回合');
-            turnIndicator.style.backgroundColor = gameState.currentPlayer === 1 ? '#333' : '#cc0000';
-        }
+        playerBlack.classList.toggle('active', gameState.currentPlayer === 1);
+        playerRed.classList.toggle('active', gameState.currentPlayer === 2);
+        turnIndicator.textContent = gameState.currentPlayer === 1 ? '黑方回合' : (gameState.mode === 'ai' ? 'AI (红) 回合' : '红方回合');
+        turnIndicator.style.backgroundColor = gameState.currentPlayer === 1 ? '#333' : '#cc0000';
         if(gameState.mode === 'ai' && gameState.currentPlayer === 2 && !gameState.gameOver) {
             updateGameStatus('ai');
             setTimeout(makeAIMove, 100);
@@ -292,7 +278,11 @@ document.addEventListener('DOMContentLoaded', () => {
         return threats >= 2;
     }
 
-    function row + i*dx, c = col + i*dy;
+    function lineInfoFull(row, col, dx, dy, player) {
+        let count = 1;
+        let openBefore = 0, openAfter = 0;
+        for(let i=1; i<5; i++) {
+            let r = row + i*dx, c = col + i*dy;
             if(r<0||r>=15||c<0||c>=15) break;
             if(gameState.board[r][c] === player) count++;
             else if(gameState.board[r][c] === 0) { openAfter = 1; break; }
@@ -315,7 +305,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         updateGameStatus('ai');
-        if(status) status.innerHTML = '<i class="fas fa-robot"></i> AI思考中 <span class="thinking"><span>.</span><span>.</span><span>.</span></span>';
+        status.innerHTML = '<i class="fas fa-robot"></i> AI思考中 <span class="thinking"><span>.</span><span>.</span><span>.</span></span>';
         setTimeout(() => {
             // 1. 直接胜利
             let winMove = findWinningMove(2);
@@ -356,7 +346,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let openBefore = 0, openAfter = 0;
         for(let i=1; i<5; i++) {
             let r = row + i*dx, c = col + i*dy;
-            if) break;
+            if(r<0||r>=15||c<0||c>=15) break;
             if(gameState.board[r][c] === player) count++;
             else if(gameState.board[r][c] === 0) { openAfter = 1; break; }
             else break;
@@ -453,8 +443,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 gameState.board[mv.row][mv.col] = 2;
                 if(checkWin(mv.row, mv.col)) {
                     gameState.board[mv.row][mv.col] = 0;
-                    if(depthCount) depthCount.textContent = d;
-                    if(winChance) winChance.textContent = '0.00%';
+                    depthCount.textContent = d;
+                    winChance.textContent = '0.00%';
                     return mv;
                 }
                 let sc = minimax(d-1, -Infinity, Infinity, false, start, timeLimit);
@@ -465,8 +455,8 @@ document.addEventListener('DOMContentLoaded', () => {
             // 动态聚焦：如果当前最优分数极高（比如已经接近必胜），则提前结束迭代
             if(bestScore > 90000000) break;
         }
-        if(depthCount) depthCount.textContent = gameState.stats.maxDepth;
-        if(winChance) winChance.textContent = '0.00%';
+        depthCount.textContent = gameState.stats.maxDepth;
+        winChance.textContent = '0.00%';
         return bestMove || moves[0];
     }
 
@@ -484,7 +474,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let maxEval = -Infinity;
             for(let mv of moves) {
                 gameState.board[mv.row][mv.col] = 2;
-               Win(mv.row,mv.col)) { gameState.board[mv.row][mv.col] = 0; return 100000000; }
+                if(checkWin(mv.row, mv.col)) { gameState.board[mv.row][mv.col] = 0; return 100000000; }
                 let ev = minimax(depth-1, alpha, beta, false, start, limit);
                 gameState.board[mv.row][mv.col] = 0;
                 maxEval = Math.max(maxEval, ev);
@@ -496,7 +486,8 @@ document.addEventListener('DOMContentLoaded', () => {
             let minEval = Infinity;
             for(let mv of moves) {
                 gameState.board[mv.row][mv.col] = 1;
-                if(checkWin(mv.row,mv.col)) { gameState.board[m alpha, beta, true, start, limit);
+                if(checkWin(mv.row, mv.col)) { gameState.board[mv.row][mv.col] = 0; return -100000000; }
+                let ev = minimax(depth-1, alpha, beta, true, start, limit);
                 gameState.board[mv.row][mv.col] = 0;
                 minEval = Math.min(minEval, ev);
                 beta = Math.min(beta, ev);
@@ -513,45 +504,45 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if(gameState.mode==='ai') {
             if(gameState.currentPlayer === 1) {
-                if(status) status.innerHTML = '<i class="fas fa-chess"></i> 你的回合 (黑棋)';
+                status.innerHTML = '<i class="fas fa-chess"></i> 你的回合 (黑棋)';
                 updateGameStatus('player');
             } else {
-                if(status) status.innerHTML = '<i class="fas fa-robot"></i> AI思考中...';
+                status.innerHTML = '<i class="fas fa-robot"></i> AI思考中...';
             }
         } else {
-            if(status) status.innerHTML = `<i class="fas fa-user"></i> ${gameState.currentPlayer===1?'黑方':'红方'}回合`;
+            status.innerHTML = `<i class="fas fa-user"></i> ${gameState.currentPlayer===1?'黑方':'红方'}回合`;
             updateGameStatus('pvp');
         }
     }
 
     function showWinner(player) {
-        if(winMessage) winMessage.classList.add('show');
+        winMessage.classList.add('show');
         let name, egg;
         if(player === 1) {
             name = gameState.mode === 'ai' ? '你赢了! (不可能吧?)' : '黑方胜利!';
             egg = gameState.mode === 'ai' ? '这怎么可能…这可是我的自研AI' : '精彩的对局！';
             if(gameState.mode === 'ai') addWinPoints();
             gameState.stats.playerWins++;
-            if(playerScore) playerScore.textContent = gameState.stats.playerWins;
+            playerScore.textContent = gameState.stats.playerWins;
         } else {
             name = gameState.mode === 'ai' ? 'AI赢了!' : '红方胜利!';
             egg = gameState.mode === 'ai' ? '速战速决，直接攻破！' : '红方技高一筹！';
             if(gameState.mode === 'ai') addLossPoints();
             gameState.stats.aiWins++;
-            if(aiScore) aiScore.textContent = gameState.stats.aiWins;
+            aiScore.textContent = gameState.stats.aiWins;
         }
-        if(winnerDisplay) winnerDisplay.innerHTML = `<div class="player-icon ${player===1?'black-icon':'red-icon'}">●</div><div>${name}</div>`;
-        if(eggMessage) eggMessage.textContent = egg;
+        winnerDisplay.innerHTML = `<div class="player-icon ${player===1?'black-icon':'red-icon'}">●</div><div>${name}</div>`;
+        eggMessage.textContent = egg;
         updateGameStatus('over');
     }
 
     function restartGame() {
         gameState.board = Array(15).fill().map(() => Array(15).fill(0));
         gameState.currentPlayer=1; gameState.gameOver=false; gameState.moves=[]; gameState.stats.moves=0;
-        if(moveCount) moveCount.textContent='0'; if(depthCount) depthCount.textContent='0'; if(winChance) winChance.textContent='0%';
-        if(playerBlack) playerBlack.classList.add('active'); if(playerRed) playerRed.classList.remove('active');
-        if(turnIndicator) { turnIndicator.textContent='黑方回合'; turnIndicator.style.backgroundColor='#333'; }
-        if(winMessage) winMessage.classList.remove('show'); drawStones(); updateStatus(); resetUndoCount();
+        moveCount.textContent='0'; depthCount.textContent='0'; winChance.textContent='0%';
+        playerBlack.classList.add('active'); playerRed.classList.remove('active');
+        turnIndicator.textContent='黑方回合'; turnIndicator.style.backgroundColor='#333';
+        winMessage.classList.remove('show'); drawStones(); updateStatus(); resetUndoCount();
         updateGameStatus('idle');
     }
 
@@ -560,26 +551,24 @@ document.addEventListener('DOMContentLoaded', () => {
         playSound(clickSound);
         const last=gameState.moves.pop();
         gameState.board=last.prevBoard; gameState.currentPlayer=last.player; gameState.gameOver=false;
-        gameState.stats.moves--; if(moveCount) moveCount.textContent=gameState.stats.moves;
-        if(playerBlack) playerBlack.classList.toggle('active', gameState.currentPlayer===1);
-        if(playerRed) playerRed.classList.toggle('active', gameState.currentPlayer===2);
-        if(turnIndicator) {
-            turnIndicator.textContent = gameState.currentPlayer===1?'黑方回合':(gameState.mode==='ai'?'AI (红) 回合':'红方回合');
-            turnIndicator.style.backgroundColor = gameState.currentPlayer===1?'#333':'#cc0000';
-        }
+        gameState.stats.moves--; moveCount.textContent=gameState.stats.moves;
+        playerBlack.classList.toggle('active', gameState.currentPlayer===1);
+        playerRed.classList.toggle('active', gameState.currentPlayer===2);
+        turnIndicator.textContent = gameState.currentPlayer===1?'黑方回合':(gameState.mode==='ai'?'AI (红) 回合':'红方回合');
+        turnIndicator.style.backgroundColor = gameState.currentPlayer===1?'#333':'#cc0000';
         drawStones(); updateStatus(); incrementUndoCount();
     }
 
-    function setModel(m) { playSound(clickSound); gameState.model=m; modelBtns.forEach(b=>b.classList.toggle('active', b.dataset.model===m)); if(winChance) winChance.textContent='0.00%'; }
+    function setModel(m) { playSound(clickSound); gameState.model=m; modelBtns.forEach(b=>b.classList.toggle('active', b.dataset.model===m)); winChance.textContent='0.00%'; }
 
     function setMode(mode) {
         playSound(clickSound);
         gameState.mode = mode;
-        if(aiModeBtn) aiModeBtn.classList.toggle('active', mode === 'ai');
-        if(pvpModeBtn) pvpModeBtn.classList.toggle('active', mode === 'pvp');
-        if(mode === 'pvp' && aiDifficultyPanel) {
+        aiModeBtn.classList.toggle('active', mode === 'ai');
+        pvpModeBtn.classList.toggle('active', mode === 'pvp');
+        if(mode === 'pvp') {
             aiDifficultyPanel.style.display = 'none';
-        } else if(aiDifficultyPanel) {
+        } else {
             aiDifficultyPanel.style.display = 'block';
         }
         if(mode === 'ai' && gameState.currentPlayer === 2 && !gameState.gameOver) {
@@ -589,30 +578,26 @@ document.addEventListener('DOMContentLoaded', () => {
             updateGameStatus(mode === 'ai' ? 'player' : 'pvp');
         }
         updateStatus();
-        if(turnIndicator) turnIndicator.textContent = gameState.currentPlayer === 1 ? '黑方回合' : (mode === 'ai' ? 'AI (红) 回合' : '红方回合');
+        turnIndicator.textContent = gameState.currentPlayer === 1 ? '黑方回合' : (mode === 'ai' ? 'AI (红) 回合' : '红方回合');
     }
 
-    function showAgreement() { if(agreementOverlay) agreementOverlay.classList.add('show'); playSound(clickSound); }
-    function hideAgreement() { if(agreementOverlay) agreementOverlay.classList.remove('show'); }
+    function showAgreement() { agreementOverlay.classList.add('show'); playSound(clickSound); }
+    function hideAgreement() { agreementOverlay.classList.remove('show'); }
     function openRewardPage() { window.open('https://raw.githubusercontent.com/kevin2014123/gomoku-ai/main/Reward%20code.png', '_blank'); }
 
-    if(supportBtn) supportBtn.addEventListener('click', (e) => { e.preventDefault(); showAgreement(); });
-    if(agreementAgree) agreementAgree.addEventListener('click', () => { hideAgreement(); openRewardPage(); });
-    if(agreementDisagree) agreementDisagree.addEventListener('click', hideAgreement);
-    if(agreementOverlay) agreementOverlay.addEventListener('click', (e) => { if(e.target === agreementOverlay) hideAgreement(); });
+    supportBtn.addEventListener('click', (e) => { e.preventDefault(); showAgreement(); });
+    agreementAgree.addEventListener('click', () => { hideAgreement(); openRewardPage(); });
+    agreementDisagree.addEventListener('click', hideAgreement);
+    agreementOverlay.addEventListener('click', (e) => { if(e.target === agreementOverlay) hideAgreement(); });
 
-    if(restartBtn) restartBtn.addEventListener('click', restartGame);
-    if(playAgainBtn) playAgainBtn.addEventListener('click', () => { playSound(clickSound); if(winMessage) winMessage.classList.remove('show'); restartGame(); });
-    if(viewBoardBtn) viewBoardBtn.addEventListener('click', () => { playSound(clickSound); if(winMessage) winMessage.classList.remove('show'); });
-    if(undoBtn) undoBtn.addEventListener('click', undoMove);
+    restartBtn.addEventListener('click', restartGame);
+    playAgainBtn.addEventListener('click', () => { playSound(clickSound); winMessage.classList.remove('show'); restartGame(); });
+    viewBoardBtn.addEventListener('click', () => { playSound(clickSound); winMessage.classList.remove('show'); });
+    undoBtn.addEventListener('click', undoMove);
     modelBtns.forEach(b=>b.addEventListener('click', ()=>setModel(b.dataset.model)));
-    if(aiModeBtn) aiModeBtn.addEventListener('click', ()=>setMode('ai'));
-    if(pvpModeBtn) pvpModeBtn.addEventListener('click', ()=>setMode('pvp'));
-    if(soundToggle) soundToggle.addEventListener('click', ()=>{ 
-        soundEnabled = !soundEnabled; 
-        soundToggle.innerHTML = soundEnabled ? '<i class="fas fa-volume-up"></i>' : '<i class="fas fa-volume-mute"></i>'; 
-        try { playSound(clickSound); } catch(e) {}
-    });
+    aiModeBtn.addEventListener('click', ()=>setMode('ai'));
+    pvpModeBtn.addEventListener('click', ()=>setMode('pvp'));
+    soundToggle.addEventListener('click', ()=>{ soundEnabled=!soundEnabled; soundToggle.innerHTML = soundEnabled ? '<i class="fas fa-volume-up"></i>' : '<i class="fas fa-volume-mute"></i>'; playSound(clickSound); });
 
     initGame();
 });
